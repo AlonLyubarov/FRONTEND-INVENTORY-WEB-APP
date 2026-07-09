@@ -1,0 +1,445 @@
+@if (loadError(); as error) {
+  <div class="card empty-state">
+    <div class="empty-state__icon">🚫</div>
+    <div class="empty-state__title">Couldn't open this warehouse</div>
+    <p>{{ error }}</p>
+    <a class="btn" routerLink="/dashboard">Back to dashboard</a>
+  </div>
+} @else if (warehouse(); as wh) {
+  @if (!isMain()) {
+    <a class="back-link" [routerLink]="['/warehouse', wh.parentWarehouseId]"
+      >← Back to main warehouse</a
+    >
+  }
+
+  <div class="page-header">
+    <div>
+      <h1>
+        {{ wh.name }}
+        @if (!isMain()) {
+          <span class="badge badge--neutral">Sub-warehouse</span>
+        }
+      </h1>
+      <p class="page-header__subtitle">
+        📍 {{ wh.location }} · 👥 {{ wh.userCount }} users · Created
+        {{ wh.createdAt | date: 'MMM d, y' }}
+      </p>
+    </div>
+    @if (auth.isAdmin()) {
+      <div class="page-actions">
+        <button type="button" class="btn btn--ghost btn--sm" (click)="openEditWarehouse()">
+          Edit warehouse
+        </button>
+        @if (isMain()) {
+          <button type="button" class="btn btn--ghost btn--sm" (click)="openCreateSub()">
+            + Sub-warehouse
+          </button>
+          <button type="button" class="btn btn--sm" (click)="inviteOpen.set(true)">Invite user</button>
+        }
+        <button
+          type="button"
+          class="btn btn--danger-ghost btn--sm"
+          [disabled]="isMain() && wh.subWarehouses.length > 0"
+          [title]="
+            isMain() && wh.subWarehouses.length > 0
+              ? 'Sub-warehouses must be deleted first'
+              : 'Delete this warehouse'
+          "
+          (click)="askDeleteWarehouse({ id: wh.id, name: wh.name })"
+        >
+          Delete
+        </button>
+      </div>
+    }
+  </div>
+
+  <div class="tabs" role="tablist">
+    <button type="button" class="tab" [class.active]="activeTab() === 'overview'" (click)="setTab('overview')">
+      Overview
+    </button>
+    <button type="button" class="tab" [class.active]="activeTab() === 'items'" (click)="setTab('items')">
+      Items
+    </button>
+    <button
+      type="button"
+      class="tab"
+      [class.active]="activeTab() === 'transactions'"
+      (click)="setTab('transactions')"
+    >
+      Transactions
+    </button>
+    @if (showUsersTab()) {
+      <button type="button" class="tab" [class.active]="activeTab() === 'users'" (click)="setTab('users')">
+        Users
+      </button>
+    }
+  </div>
+
+  @switch (activeTab()) {
+    <!-- ── Overview ─────────────────────────────────────────────────── -->
+    @case ('overview') {
+      @if (details(); as d) {
+        <div class="summary-cards">
+          <div class="summary-card">
+            <div class="summary-card__label">Total items</div>
+            <div class="summary-card__value">{{ d.inventorySummary.totalItems }}</div>
+          </div>
+          <div class="summary-card">
+            <div class="summary-card__label">Total quantity</div>
+            <div class="summary-card__value">{{ d.inventorySummary.totalQuantity }}</div>
+          </div>
+          <div class="summary-card summary-card--warning">
+            <div class="summary-card__label">Low stock</div>
+            <div class="summary-card__value">{{ d.inventorySummary.lowStockItems }}</div>
+          </div>
+          <div class="summary-card summary-card--danger">
+            <div class="summary-card__label">Out of stock</div>
+            <div class="summary-card__value">{{ d.inventorySummary.outOfStockItems }}</div>
+          </div>
+          <div class="summary-card">
+            <div class="summary-card__label">Transactions</div>
+            <div class="summary-card__value">{{ d.inventorySummary.transactionCount }}</div>
+          </div>
+        </div>
+      } @else {
+        <div class="summary-cards">
+          <div class="skeleton" style="height: 84px"></div>
+          <div class="skeleton" style="height: 84px"></div>
+          <div class="skeleton" style="height: 84px"></div>
+          <div class="skeleton" style="height: 84px"></div>
+          <div class="skeleton" style="height: 84px"></div>
+        </div>
+      }
+
+      <div class="card">
+        <h2>Warehouse tree</h2>
+        <ul class="tree">
+          <li>
+            <div class="tree__node tree__node--root">
+              <span class="tree__icon">🏭</span>
+              <span>{{ wh.name }}</span>
+              <span class="tree__meta">{{ wh.location }}</span>
+            </div>
+            @if (isMain()) {
+              <ul class="tree__children">
+                @for (sub of wh.subWarehouses; track sub.id) {
+                  <li>
+                    <div class="tree__node">
+                      <a class="tree__link" [routerLink]="['/warehouse', sub.id]">
+                        <span class="tree__icon">🏬</span>
+                        <span>{{ sub.name }}</span>
+                        <span class="tree__meta">{{ sub.location }}</span>
+                      </a>
+                      @if (auth.isAdmin()) {
+                        <button
+                          type="button"
+                          class="icon-btn"
+                          title="Delete sub-warehouse"
+                          (click)="askDeleteWarehouse({ id: sub.id, name: sub.name })"
+                        >
+                          🗑️
+                        </button>
+                      }
+                    </div>
+                  </li>
+                } @empty {
+                  <li class="text-muted" style="padding: 0.4rem 0">
+                    No sub-warehouses yet.
+                    @if (auth.isAdmin()) {
+                      <button type="button" class="chip" (click)="openCreateSub()">+ Add one</button>
+                    }
+                  </li>
+                }
+              </ul>
+            }
+          </li>
+        </ul>
+      </div>
+    }
+
+    <!-- ── Items ────────────────────────────────────────────────────── -->
+    @case ('items') {
+      <div class="table-card">
+        <div class="table-toolbar">
+          <h2>Items <span class="text-muted">(including sub-warehouses)</span></h2>
+          @if (canManageItems()) {
+            <button type="button" class="btn btn--sm" (click)="itemModal.set({ item: null })">
+              + New item
+            </button>
+          }
+        </div>
+
+        @if (items(); as itemList) {
+          @if (itemList.length === 0) {
+            <div class="empty-state">
+              <div class="empty-state__icon">📦</div>
+              <div class="empty-state__title">No items yet</div>
+              @if (canManageItems()) {
+                <p>Add the first item to start tracking stock here.</p>
+                <button type="button" class="btn" (click)="itemModal.set({ item: null })">+ New item</button>
+              } @else {
+                <p>Items added by your managers will show up here.</p>
+              }
+            </div>
+          } @else {
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>SKU</th>
+                    <th>Product</th>
+                    <th>Location</th>
+                    <th>Warehouse node</th>
+                    <th>Qty</th>
+                    <th>Min level</th>
+                    <th>Status</th>
+                    @if (canManageItems()) {
+                      <th></th>
+                    }
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (item of itemList; track item.id) {
+                    <tr>
+                      <td data-label="SKU">{{ item.productCatalog?.sku ?? '—' }}</td>
+                      <td data-label="Product">{{ item.productCatalog?.name ?? 'Product #' + item.productCatalogId }}</td>
+                      <td data-label="Location" class="cell-muted">{{ item.location }}</td>
+                      <td data-label="Node">
+                        <span class="chip chip--static">{{ nodeName(item.warehouseId) }}</span>
+                      </td>
+                      <td data-label="Qty" class="cell-num">{{ item.quantity }}</td>
+                      <td data-label="Min level" class="cell-num cell-muted">{{ item.minimumStockLevel }}</td>
+                      <td data-label="Status">
+                        <span [class]="statusClass(item.status)">{{ item.status }}</span>
+                      </td>
+                      @if (canManageItems()) {
+                        <td class="cell-actions">
+                          <button type="button" class="btn btn--ghost btn--sm" (click)="itemModal.set({ item: item })">
+                            Edit
+                          </button>
+                          @if (auth.isAdmin()) {
+                            <button type="button" class="btn btn--danger-ghost btn--sm" (click)="askDeleteItem(item)">
+                              Delete
+                            </button>
+                          }
+                        </td>
+                      }
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        } @else {
+          <div class="skeleton skeleton-row"></div>
+          <div class="skeleton skeleton-row"></div>
+          <div class="skeleton skeleton-row"></div>
+        }
+      </div>
+    }
+
+    <!-- ── Transactions ─────────────────────────────────────────────── -->
+    @case ('transactions') {
+      <div class="table-card">
+        <div class="table-toolbar">
+          <h2>Transactions</h2>
+          <button type="button" class="btn btn--sm" (click)="transactionModalOpen.set(true)">
+            + New transaction
+          </button>
+        </div>
+
+        @if (sortedTransactions(); as txList) {
+          @if (txList.length === 0) {
+            <div class="empty-state">
+              <div class="empty-state__icon">🔄</div>
+              <div class="empty-state__title">No transactions yet</div>
+              <p>Record a stock movement to see it here.</p>
+              <button type="button" class="btn" (click)="transactionModalOpen.set(true)">
+                + New transaction
+              </button>
+            </div>
+          } @else {
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Item</th>
+                    <th>Type</th>
+                    <th>Qty</th>
+                    <th>Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (tx of txList; track tx.id) {
+                    <tr>
+                      <td data-label="Date" class="cell-muted">{{ tx.createdAt | date: 'MMM d, y HH:mm' }}</td>
+                      <td data-label="Item">{{ itemLabel(tx.itemId) }}</td>
+                      <td data-label="Type"><span [class]="txClass(tx.type)">{{ tx.type }}</span></td>
+                      <td data-label="Qty" class="cell-num">{{ txQuantity(tx) }}</td>
+                      <td data-label="Notes" class="cell-muted notes-cell" [title]="tx.notes ?? ''">
+                        {{ tx.notes ?? '—' }}
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        } @else {
+          <div class="skeleton skeleton-row"></div>
+          <div class="skeleton skeleton-row"></div>
+          <div class="skeleton skeleton-row"></div>
+        }
+      </div>
+    }
+
+    <!-- ── Users (Admin owner, MAIN warehouse only) ─────────────────── -->
+    @case ('users') {
+      <div class="table-card">
+        <div class="table-toolbar">
+          <h2>Users</h2>
+          <button type="button" class="btn btn--sm" (click)="inviteOpen.set(true)">Invite user</button>
+        </div>
+
+        @if (users(); as userList) {
+          @if (userList.length === 0) {
+            <div class="empty-state">
+              <div class="empty-state__icon">👥</div>
+              <div class="empty-state__title">No team members yet</div>
+              <p>Invite an Employee or Shift Manager into this warehouse.</p>
+              <button type="button" class="btn" (click)="inviteOpen.set(true)">Invite user</button>
+            </div>
+          } @else {
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Warehouse</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (user of userList; track user.id) {
+                    <tr>
+                      <td data-label="Username">{{ user.username }}</td>
+                      <td data-label="Email" class="cell-muted">{{ user.email }}</td>
+                      <td data-label="Role"><span [class]="roleClass(user.role)">{{ roleName(user.role) }}</span></td>
+                      <td data-label="Warehouse" class="cell-muted">{{ user.warehouseName ?? '—' }}</td>
+                      <td class="cell-actions">
+                        @if (user.role !== 'Admin') {
+                          <button
+                            type="button"
+                            class="btn btn--danger-ghost btn--sm"
+                            (click)="askRemoveUser(user)"
+                          >
+                            Remove
+                          </button>
+                        }
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        } @else {
+          <div class="skeleton skeleton-row"></div>
+          <div class="skeleton skeleton-row"></div>
+          <div class="skeleton skeleton-row"></div>
+        }
+      </div>
+    }
+  }
+} @else {
+  <div class="skeleton" style="height: 40px; max-width: 360px; margin-bottom: 1rem"></div>
+  <div class="summary-cards">
+    <div class="skeleton" style="height: 84px"></div>
+    <div class="skeleton" style="height: 84px"></div>
+    <div class="skeleton" style="height: 84px"></div>
+  </div>
+  <div class="skeleton skeleton-card"></div>
+}
+
+<!-- ── Modals ──────────────────────────────────────────────────────── -->
+
+@if (itemModal(); as modal) {
+  <app-item-form-modal
+    [item]="modal.item"
+    [defaultWarehouseId]="modal.item?.warehouseId ?? warehouseId()"
+    (saved)="onItemSaved()"
+    (closed)="itemModal.set(null)"
+  />
+}
+
+@if (transactionModalOpen()) {
+  <app-transaction-form-modal
+    [items]="items() ?? []"
+    (saved)="onTransactionSaved()"
+    (closed)="transactionModalOpen.set(false)"
+  />
+}
+
+@if (formModal(); as modal) {
+  <app-warehouse-form-modal
+    [mode]="modal.mode"
+    [parent]="modal.parent ?? null"
+    [warehouse]="modal.warehouse ?? null"
+    (saved)="onWarehouseFormSaved()"
+    (closed)="formModal.set(null)"
+  />
+}
+
+@if (inviteOpen() && warehouse(); as wh) {
+  <app-invite-user-modal
+    [warehouse]="{ id: wh.id, name: wh.name }"
+    (invited)="onInvited()"
+    (closed)="inviteOpen.set(false)"
+  />
+}
+
+@if (removeUserTarget(); as target) {
+  <app-confirm-dialog
+    title="Remove user"
+    [message]="
+      'Remove “' + target.username + '” from this warehouse? Their account will be deleted.'
+    "
+    [error]="removeUserError()"
+    [pending]="removeUserPending()"
+    confirmLabel="Remove"
+    (confirmed)="confirmRemoveUser()"
+    (cancelled)="removeUserTarget.set(null)"
+  />
+}
+
+@if (deleteWarehouseTarget(); as target) {
+  <app-confirm-dialog
+    title="Delete warehouse"
+    [message]="'Delete “' + target.name + '”? This cannot be undone.'"
+    warning="Items stored in this warehouse will be removed with it."
+    [error]="deleteWarehouseError()"
+    [pending]="deleteWarehousePending()"
+    (confirmed)="confirmDeleteWarehouse()"
+    (cancelled)="deleteWarehouseTarget.set(null)"
+  />
+}
+
+@if (deleteItemTarget(); as target) {
+  <app-confirm-dialog
+    title="Delete item"
+    [message]="
+      'Delete “' +
+      (target.productCatalog?.name ?? 'this item') +
+      '” from ' +
+      nodeName(target.warehouseId) +
+      '? This cannot be undone.'
+    "
+    [error]="deleteItemError()"
+    [pending]="deleteItemPending()"
+    (confirmed)="confirmDeleteItem()"
+    (cancelled)="deleteItemTarget.set(null)"
+  />
+}

@@ -1,0 +1,112 @@
+<div class="auth-page">
+  <div class="auth-card auth-card--wide">
+    <div class="auth-card__brand"><span class="topbar__logo">📦</span> Warehouse Manager</div>
+    <h1>Open your warehouse</h1>
+    <p class="auth-card__subtitle">
+      Registering creates <strong>your own warehouse</strong> — you become its owner. You can add
+      sub-warehouses and invite your team once you're in.
+    </p>
+
+    @if (serverError(); as error) {
+      <p class="form-error" role="alert">{{ error }}</p>
+    }
+
+    <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
+      <div class="form-section">
+        <div class="form-section__title">Your account</div>
+
+        <label class="field">
+          <span class="field__label">Username</span>
+          <input type="text" formControlName="username" maxlength="50" autocomplete="username" />
+          @if (form.controls.username.touched && form.controls.username.invalid) {
+            <div class="field__error">
+              @if (form.controls.username.hasError('required')) {
+                Username is required.
+              } @else {
+                Username must be at most 50 characters.
+              }
+            </div>
+          }
+        </label>
+
+        <div class="form-row">
+          <label class="field">
+            <span class="field__label">Email</span>
+            <input type="email" formControlName="email" autocomplete="email" />
+            @if (form.controls.email.touched && form.controls.email.invalid) {
+              <div class="field__error">
+                @if (form.controls.email.hasError('required')) {
+                  Email is required.
+                } @else {
+                  Enter a valid email address.
+                }
+              </div>
+            }
+          </label>
+
+          <label class="field">
+            <span class="field__label">Password</span>
+            <input type="password" formControlName="password" autocomplete="new-password" />
+            @if (form.controls.password.touched && form.controls.password.invalid) {
+              <div class="field__error">
+                @if (form.controls.password.hasError('required')) {
+                  Password is required.
+                } @else {
+                  Password must be at least 6 characters.
+                }
+              </div>
+            }
+          </label>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section__title">Your main warehouse</div>
+
+        <label class="field">
+          <span class="field__label">Warehouse name</span>
+          <input
+            type="text"
+            formControlName="warehouseName"
+            maxlength="100"
+            placeholder="e.g. Central Depot"
+          />
+          @if (form.controls.warehouseName.touched && form.controls.warehouseName.invalid) {
+            <div class="field__error">
+              @if (form.controls.warehouseName.hasError('required')) {
+                Warehouse name is required.
+              } @else {
+                Warehouse name must be at most 100 characters.
+              }
+            </div>
+          }
+        </label>
+
+        <label class="field">
+          <span class="field__label">Warehouse location</span>
+          <input
+            type="text"
+            formControlName="warehouseLocation"
+            maxlength="200"
+            placeholder="e.g. 12 Harbor Rd, Haifa"
+          />
+          @if (form.controls.warehouseLocation.touched && form.controls.warehouseLocation.invalid) {
+            <div class="field__error">
+              @if (form.controls.warehouseLocation.hasError('required')) {
+                Warehouse location is required.
+              } @else {
+                Warehouse location must be at most 200 characters.
+              }
+            </div>
+          }
+        </label>
+      </div>
+
+      <button type="submit" class="btn btn--block" [disabled]="pending()">
+        {{ pending() ? 'Creating your warehouse…' : 'Create my warehouse' }}
+      </button>
+    </form>
+
+    <p class="auth-card__footer">Already an owner or team member? <a routerLink="/login">Sign in</a></p>
+  </div>
+</div>

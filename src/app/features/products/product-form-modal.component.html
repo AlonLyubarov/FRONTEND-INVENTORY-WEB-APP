@@ -1,0 +1,45 @@
+<app-modal [title]="product() ? 'Edit product' : 'New product'" (closed)="closed.emit()">
+  @if (serverError(); as error) {
+    <p class="form-error" role="alert">{{ error }}</p>
+  }
+
+  <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
+    <div class="form-row">
+      <label class="field">
+        <span class="field__label">SKU</span>
+        <input type="text" formControlName="sku" placeholder="e.g. WID-0042" />
+        @if (form.controls.sku.touched && form.controls.sku.hasError('required')) {
+          <div class="field__error">SKU is required.</div>
+        }
+      </label>
+
+      <label class="field">
+        <span class="field__label">Price</span>
+        <input type="number" formControlName="price" min="0" step="0.01" />
+        @if (form.controls.price.touched && form.controls.price.invalid) {
+          <div class="field__error">Price must be 0 or more.</div>
+        }
+      </label>
+    </div>
+
+    <label class="field">
+      <span class="field__label">Name</span>
+      <input type="text" formControlName="name" placeholder="e.g. Widget, blue" />
+      @if (form.controls.name.touched && form.controls.name.hasError('required')) {
+        <div class="field__error">Name is required.</div>
+      }
+    </label>
+
+    <label class="field">
+      <span class="field__label">Barcode <span class="optional">(optional)</span></span>
+      <input type="text" formControlName="barcode" />
+    </label>
+
+    <div class="modal-actions">
+      <button type="button" class="btn btn--ghost" (click)="closed.emit()">Cancel</button>
+      <button type="submit" class="btn" [disabled]="pending()">
+        {{ pending() ? 'Saving…' : product() ? 'Save changes' : 'Create product' }}
+      </button>
+    </div>
+  </form>
+</app-modal>

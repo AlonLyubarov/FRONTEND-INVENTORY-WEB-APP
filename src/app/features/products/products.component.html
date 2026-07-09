@@ -1,0 +1,107 @@
+<div class="page-header">
+  <div>
+    <h1>Product catalog</h1>
+    <p class="page-header__subtitle">
+      Products shared across your warehouses.
+      @if (!canManage()) {
+        Read-only for your role.
+      }
+    </p>
+  </div>
+  @if (canManage()) {
+    <div class="page-actions">
+      <button type="button" class="btn" (click)="formModal.set({ product: null })">+ New product</button>
+    </div>
+  }
+</div>
+
+<div class="table-card">
+  <div class="table-toolbar">
+    <input
+      type="search"
+      placeholder="Search by SKU, name or barcode…"
+      [value]="search()"
+      (input)="search.set($any($event.target).value)"
+    />
+  </div>
+
+  @if (filteredProducts(); as productList) {
+    @if (productList.length === 0) {
+      <div class="empty-state">
+        <div class="empty-state__icon">🏷️</div>
+        @if (search().trim()) {
+          <div class="empty-state__title">No products match “{{ search() }}”</div>
+        } @else {
+          <div class="empty-state__title">No products yet</div>
+          @if (canManage()) {
+            <p>Create your first catalog entry to start adding items.</p>
+            <button type="button" class="btn" (click)="formModal.set({ product: null })">
+              + New product
+            </button>
+          }
+        }
+      </div>
+    } @else {
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>SKU</th>
+              <th>Name</th>
+              <th>Price</th>
+              <th>Barcode</th>
+              <th>Created</th>
+              @if (canManage()) {
+                <th></th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (product of productList; track product.id) {
+              <tr>
+                <td data-label="SKU">{{ product.sku }}</td>
+                <td data-label="Name">{{ product.name }}</td>
+                <td data-label="Price" class="cell-num">{{ product.price | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
+                <td data-label="Barcode" class="cell-muted">{{ product.barcode ?? '—' }}</td>
+                <td data-label="Created" class="cell-muted">{{ product.createdAt | date: 'MMM d, y' }}</td>
+                @if (canManage()) {
+                  <td class="cell-actions">
+                    <button type="button" class="btn btn--ghost btn--sm" (click)="formModal.set({ product: product })">
+                      Edit
+                    </button>
+                    <button type="button" class="btn btn--danger-ghost btn--sm" (click)="askDelete(product)">
+                      Delete
+                    </button>
+                  </td>
+                }
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  } @else {
+    <div class="skeleton skeleton-row"></div>
+    <div class="skeleton skeleton-row"></div>
+    <div class="skeleton skeleton-row"></div>
+  }
+</div>
+
+@if (formModal(); as modal) {
+  <app-product-form-modal
+    [product]="modal.product"
+    (saved)="onSaved()"
+    (closed)="formModal.set(null)"
+  />
+}
+
+@if (deleteTarget(); as target) {
+  <app-confirm-dialog
+    title="Delete product"
+    [message]="'Delete “' + target.name + '” (' + target.sku + ')? This cannot be undone.'"
+    [error]="deleteError()"
+    [pending]="deletePending()"
+    (confirmed)="confirmDelete()"
+    (cancelled)="deleteTarget.set(null)"
+  />
+}

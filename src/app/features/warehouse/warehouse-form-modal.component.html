@@ -1,0 +1,42 @@
+<app-modal [title]="title()" (closed)="closed.emit()">
+  @if (serverError(); as error) {
+    <p class="form-error" role="alert">{{ error }}</p>
+  }
+
+  <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
+    <label class="field">
+      <span class="field__label">Name</span>
+      <input type="text" formControlName="name" maxlength="100" />
+      @if (form.controls.name.touched && form.controls.name.invalid) {
+        <div class="field__error">
+          @if (form.controls.name.hasError('required')) {
+            Name is required.
+          } @else {
+            Name must be at most 100 characters.
+          }
+        </div>
+      }
+    </label>
+
+    <label class="field">
+      <span class="field__label">Location</span>
+      <input type="text" formControlName="location" maxlength="200" />
+      @if (form.controls.location.touched && form.controls.location.invalid) {
+        <div class="field__error">
+          @if (form.controls.location.hasError('required')) {
+            Location is required.
+          } @else {
+            Location must be at most 200 characters.
+          }
+        </div>
+      }
+    </label>
+
+    <div class="modal-actions">
+      <button type="button" class="btn btn--ghost" (click)="closed.emit()">Cancel</button>
+      <button type="submit" class="btn" [disabled]="pending()">
+        {{ pending() ? 'Saving…' : 'Save' }}
+      </button>
+    </div>
+  </form>
+</app-modal>

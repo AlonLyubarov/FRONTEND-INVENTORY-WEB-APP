@@ -1,0 +1,92 @@
+<app-modal [title]="item() ? 'Edit item' : 'New item'" (closed)="closed.emit()">
+  @if (serverError(); as error) {
+    <p class="form-error" role="alert">{{ error }}</p>
+  }
+
+  <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
+    <label class="field">
+      <span class="field__label">Search product <span class="optional">(by SKU or name)</span></span>
+      <input
+        type="search"
+        placeholder="Filter the product list…"
+        [value]="productSearch()"
+        (input)="productSearch.set($any($event.target).value)"
+      />
+    </label>
+
+    <label class="field">
+      <span class="field__label">Product</span>
+      @if (products() === null) {
+        <div class="skeleton" style="height: 2.4rem"></div>
+      } @else {
+        <select formControlName="productCatalogId">
+          <option [ngValue]="null" disabled>Select a product…</option>
+          @for (product of filteredProducts(); track product.id) {
+            <option [ngValue]="product.id">{{ product.sku }} — {{ product.name }}</option>
+          }
+        </select>
+        @if ((products()?.length ?? 0) === 0) {
+          <div class="field__hint">No products in the catalog yet — add one on the Products page.</div>
+        }
+        @if (form.controls.productCatalogId.touched && form.controls.productCatalogId.invalid) {
+          <div class="field__error">Product is required.</div>
+        }
+      }
+    </label>
+
+    <label class="field">
+      <span class="field__label">Warehouse node</span>
+      @if (nodeGroups() === null) {
+        <div class="skeleton" style="height: 2.4rem"></div>
+      } @else {
+        <select formControlName="targetWarehouseId">
+          <option [ngValue]="null" disabled>Select a warehouse…</option>
+          @for (group of nodeGroups(); track group.main.id) {
+            <optgroup [label]="group.main.name">
+              <option [ngValue]="group.main.id">🏭 {{ group.main.name }} (main)</option>
+              @for (sub of group.subs; track sub.id) {
+                <option [ngValue]="sub.id">🏬 {{ sub.name }}</option>
+              }
+            </optgroup>
+          }
+        </select>
+        @if (form.controls.targetWarehouseId.touched && form.controls.targetWarehouseId.invalid) {
+          <div class="field__error">Warehouse node is required.</div>
+        }
+      }
+    </label>
+
+    <label class="field">
+      <span class="field__label">Location within warehouse</span>
+      <input type="text" formControlName="location" placeholder="e.g. Aisle 4, Shelf B" />
+      @if (form.controls.location.touched && form.controls.location.hasError('required')) {
+        <div class="field__error">Location is required.</div>
+      }
+    </label>
+
+    <div class="form-row">
+      <label class="field">
+        <span class="field__label">Quantity</span>
+        <input type="number" formControlName="quantity" min="0" step="1" />
+        @if (form.controls.quantity.touched && form.controls.quantity.invalid) {
+          <div class="field__error">Quantity must be 0 or more.</div>
+        }
+      </label>
+
+      <label class="field">
+        <span class="field__label">Minimum stock level</span>
+        <input type="number" formControlName="minimumStockLevel" min="0" step="1" />
+        @if (form.controls.minimumStockLevel.touched && form.controls.minimumStockLevel.invalid) {
+          <div class="field__error">Minimum stock level must be 0 or more.</div>
+        }
+      </label>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" class="btn btn--ghost" (click)="closed.emit()">Cancel</button>
+      <button type="submit" class="btn" [disabled]="pending()">
+        {{ pending() ? 'Saving…' : item() ? 'Save changes' : 'Create item' }}
+      </button>
+    </div>
+  </form>
+</app-modal>

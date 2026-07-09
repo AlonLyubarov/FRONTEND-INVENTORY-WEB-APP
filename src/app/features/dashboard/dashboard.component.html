@@ -1,0 +1,135 @@
+<div class="page-header">
+  <div>
+    <h1>Dashboard</h1>
+    @if (auth.isAdmin()) {
+      <p class="page-header__subtitle">Your main warehouses and their sub-warehouses.</p>
+    } @else {
+      <p class="page-header__subtitle">Your assigned warehouse.</p>
+    }
+  </div>
+  @if (auth.isAdmin()) {
+    <div class="page-actions">
+      <button type="button" class="btn" (click)="openCreateMain()">+ New warehouse</button>
+    </div>
+  }
+</div>
+
+@if (loading() && warehouses() === null) {
+  <div class="card-grid">
+    <div class="skeleton skeleton-card"></div>
+    <div class="skeleton skeleton-card"></div>
+    <div class="skeleton skeleton-card"></div>
+  </div>
+} @else if (warehouses(); as list) {
+  @if (list.length === 0) {
+    @if (auth.isAdmin()) {
+      <div class="card empty-state">
+        <div class="empty-state__icon">🏭</div>
+        <div class="empty-state__title">No warehouses yet</div>
+        <p>Create your first main warehouse to start managing inventory.</p>
+        <button type="button" class="btn" (click)="openCreateMain()">+ New warehouse</button>
+      </div>
+    } @else {
+      <div class="card empty-state">
+        <div class="empty-state__icon">🚫</div>
+        <div class="empty-state__title">No warehouse assigned</div>
+        <p>Contact your administrator to be added to a warehouse.</p>
+      </div>
+    }
+  } @else {
+    <div class="card-grid">
+      @for (warehouse of list; track warehouse.id) {
+        <div class="card">
+          <div class="warehouse-card__head">
+            <div>
+              <h2>{{ warehouse.name }}</h2>
+              <p class="warehouse-card__meta">📍 {{ warehouse.location }}</p>
+            </div>
+            <span class="badge badge--neutral">👥 {{ warehouse.userCount }}</span>
+          </div>
+
+          <p class="warehouse-card__meta">Created {{ warehouse.createdAt | date: 'MMM d, y' }}</p>
+
+          <div class="warehouse-card__chips">
+            @for (sub of warehouse.subWarehouses; track sub.id) {
+              <button
+                type="button"
+                class="chip"
+                (click)="openSubWarehouse(sub.id)"
+                title="Open {{ sub.name }}"
+              >
+                🏬 {{ sub.name }}
+              </button>
+            } @empty {
+              <span class="chip chip--static">No sub-warehouses</span>
+            }
+          </div>
+
+          <div class="warehouse-card__actions">
+            <a class="btn btn--sm" [routerLink]="['/warehouse', warehouse.id]">Open</a>
+            @if (auth.isAdmin()) {
+              <button type="button" class="btn btn--ghost btn--sm" (click)="openEdit(warehouse)">
+                Edit
+              </button>
+              <button type="button" class="btn btn--ghost btn--sm" (click)="openCreateSub(warehouse)">
+                + Sub-warehouse
+              </button>
+              <button
+                type="button"
+                class="btn btn--ghost btn--sm"
+                (click)="inviteTarget.set({ id: warehouse.id, name: warehouse.name })"
+              >
+                Invite user
+              </button>
+              <a
+                class="btn btn--ghost btn--sm"
+                [routerLink]="['/warehouse', warehouse.id]"
+                [queryParams]="{ tab: 'users' }"
+                >Users</a
+              >
+              <button
+                type="button"
+                class="btn btn--danger-ghost btn--sm"
+                [disabled]="warehouse.subWarehouses.length > 0"
+                [title]="
+                  warehouse.subWarehouses.length > 0
+                    ? 'Sub-warehouses must be deleted first'
+                    : 'Delete this warehouse'
+                "
+                (click)="askDelete(warehouse)"
+              >
+                Delete
+              </button>
+            }
+          </div>
+        </div>
+      }
+    </div>
+  }
+}
+
+@if (formModal(); as modal) {
+  <app-warehouse-form-modal
+    [mode]="modal.mode"
+    [parent]="modal.parent ?? null"
+    [warehouse]="modal.warehouse ?? null"
+    (saved)="onFormSaved()"
+    (closed)="formModal.set(null)"
+  />
+}
+
+@if (inviteTarget(); as target) {
+  <app-invite-user-modal [warehouse]="target" (invited)="onInvited()" (closed)="inviteTarget.set(null)" />
+}
+
+@if (deleteTarget(); as target) {
+  <app-confirm-dialog
+    title="Delete warehouse"
+    [message]="'Delete “' + target.name + '”? This cannot be undone.'"
+    [warning]="target.subWarehouses.length > 0 ? 'Sub-warehouses must be deleted first.' : null"
+    [error]="deleteError()"
+    [pending]="deletePending()"
+    (confirmed)="confirmDelete()"
+    (cancelled)="deleteTarget.set(null)"
+  />
+}

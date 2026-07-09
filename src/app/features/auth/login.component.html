@@ -1,0 +1,41 @@
+<div class="auth-page">
+  <div class="auth-card">
+    <div class="auth-card__brand"><span class="topbar__logo">📦</span> Warehouse Manager</div>
+    <h1>Welcome back</h1>
+    <p class="auth-card__subtitle">Sign in to manage your warehouses and inventory.</p>
+
+    @if (registrationNotice(); as notice) {
+      <div class="auth-info">✅ {{ notice }}</div>
+    }
+
+    @if (serverError(); as error) {
+      <p class="form-error" role="alert">{{ error }}</p>
+    }
+
+    <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
+      <label class="field">
+        <span class="field__label">Username</span>
+        <input type="text" formControlName="username" autocomplete="username" />
+        @if (form.controls.username.touched && form.controls.username.hasError('required')) {
+          <div class="field__error">Username is required.</div>
+        }
+      </label>
+
+      <label class="field">
+        <span class="field__label">Password</span>
+        <input type="password" formControlName="password" autocomplete="current-password" />
+        @if (form.controls.password.touched && form.controls.password.hasError('required')) {
+          <div class="field__error">Password is required.</div>
+        }
+      </label>
+
+      <button type="submit" class="btn btn--block" [disabled]="pending()">
+        {{ pending() ? 'Signing in…' : 'Sign in' }}
+      </button>
+    </form>
+
+    <p class="auth-card__footer">
+      Don't have a warehouse yet? <a routerLink="/register">Open your warehouse</a>
+    </p>
+  </div>
+</div>

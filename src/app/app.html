@@ -1,0 +1,51 @@
+@if (isLoggedIn()) {
+  <div class="shell">
+    <header class="topbar">
+      <div class="topbar__brand">
+        <span class="topbar__logo">📦</span>
+        <span>Warehouse Manager</span>
+      </div>
+      <div class="topbar__user">
+        <span class="topbar__username">{{ currentUser()?.username }}</span>
+        <span [class]="roleBadge()">{{ roleName() }}</span>
+        <button type="button" class="btn btn--ghost btn--sm" (click)="onLogout()">Log out</button>
+      </div>
+    </header>
+
+    <div class="shell__body">
+      <nav class="sidenav">
+        <a routerLink="/dashboard" routerLinkActive="active" class="sidenav__link">🏠 Dashboard</a>
+        <a routerLink="/products" routerLinkActive="active" class="sidenav__link">🏷️ Products</a>
+
+        @if (isAdmin()) {
+          @if (warehouses(); as list) {
+            @if (list.length > 0) {
+              <div class="sidenav__section">My warehouses</div>
+              @for (warehouse of list; track warehouse.id) {
+                <a
+                  [routerLink]="['/warehouse', warehouse.id]"
+                  routerLinkActive="active"
+                  class="sidenav__link"
+                  >🏭 {{ warehouse.name }}</a
+                >
+              }
+            }
+          }
+        } @else if (myWarehouse(); as mine) {
+          <div class="sidenav__section">My warehouse</div>
+          <a [routerLink]="['/warehouse', mine.id]" routerLinkActive="active" class="sidenav__link"
+            >🏭 {{ mine.name }}</a
+          >
+        }
+      </nav>
+
+      <main class="shell__main">
+        <router-outlet />
+      </main>
+    </div>
+  </div>
+} @else {
+  <router-outlet />
+}
+
+<app-toasts />
