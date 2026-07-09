@@ -24,7 +24,7 @@ export class RegisterComponent {
   protected readonly form = this.fb.group({
     username: ['', [Validators.required, Validators.maxLength(50)]],
     email: ['', [Validators.required, Validators.email]],
-    password: ['', [Validators.required, Validators.minLength(6)]],
+    password: ['', [Validators.required, Validators.minLength(8), Validators.pattern(/[A-Z]/)]],
     warehouseName: ['', [Validators.required, Validators.maxLength(100)]],
     warehouseLocation: ['', [Validators.required, Validators.maxLength(200)]]
   });

@@ -44,8 +44,10 @@
           <div class="field__error">
             @if (form.controls.password.hasError('required')) {
               Password is required.
+            } @else if (form.controls.password.hasError('minlength')) {
+              Password must be at least 8 characters.
             } @else {
-              Password must be at least 6 characters.
+              Password must contain at least one uppercase letter.
             }
           </div>
         }
