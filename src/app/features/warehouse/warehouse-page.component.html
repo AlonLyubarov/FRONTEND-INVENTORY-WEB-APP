@@ -161,7 +161,12 @@
     @case ('items') {
       <div class="table-card">
         <div class="table-toolbar">
-          <h2>Items <span class="text-muted">(including sub-warehouses)</span></h2>
+          <h2>
+            Items
+            @if (isMain() && wh.subWarehouses.length > 0) {
+              <span class="text-muted">(including sub-warehouses)</span>
+            }
+          </h2>
           @if (canManageItems()) {
             <button type="button" class="btn btn--sm" (click)="itemModal.set({ item: null })">
               + New item
@@ -189,7 +194,9 @@
                     <th>SKU</th>
                     <th>Product</th>
                     <th>Location</th>
-                    <th>Warehouse node</th>
+                    @if (isMain()) {
+                      <th>Warehouse node</th>
+                    }
                     <th>Qty</th>
                     <th>Min level</th>
                     <th>Status</th>
@@ -204,9 +211,11 @@
                       <td data-label="SKU">{{ item.productCatalog?.sku ?? '—' }}</td>
                       <td data-label="Product">{{ item.productCatalog?.name ?? 'Product #' + item.productCatalogId }}</td>
                       <td data-label="Location" class="cell-muted">{{ item.location }}</td>
-                      <td data-label="Node">
-                        <span class="chip chip--static">{{ nodeName(item.warehouseId) }}</span>
-                      </td>
+                      @if (isMain()) {
+                        <td data-label="Node">
+                          <span class="chip chip--static">{{ nodeName(item.warehouseId) }}</span>
+                        </td>
+                      }
                       <td data-label="Qty" class="cell-num">{{ item.quantity }}</td>
                       <td data-label="Min level" class="cell-num cell-muted">{{ item.minimumStockLevel }}</td>
                       <td data-label="Status">
@@ -274,7 +283,7 @@
                   @for (tx of txList; track tx.id) {
                     <tr>
                       <td data-label="Date" class="cell-muted">{{ tx.createdAt | date: 'MMM d, y HH:mm' }}</td>
-                      <td data-label="Item">{{ itemLabel(tx.itemId) }}</td>
+                      <td data-label="Item">{{ itemLabel(tx) }}</td>
                       <td data-label="Type"><span [class]="txClass(tx.type)">{{ tx.type }}</span></td>
                       <td data-label="Qty" class="cell-num">{{ txQuantity(tx) }}</td>
                       <td data-label="Notes" class="cell-muted notes-cell" [title]="tx.notes ?? ''">

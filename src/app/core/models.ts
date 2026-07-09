@@ -97,6 +97,9 @@ export interface TransactionDto {
   quantity: number;
   notes: string | null;
   createdAt: string;
+  /** Product identification, resolved server-side even for soft-deleted items. */
+  productSku?: string | null;
+  productName?: string | null;
 }
 
 export interface PublicWarehouseDto {

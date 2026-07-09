@@ -233,10 +233,18 @@ export class WarehousePageComponent {
     return this.nodeNames().get(id) ?? `Warehouse #${id}`;
   }
 
-  protected itemLabel(itemId: number): string {
-    const item = this.itemsById().get(itemId);
-    const product = item?.productCatalog;
-    return product ? `${product.sku} — ${product.name}` : `Item #${itemId}`;
+  protected itemLabel(tx: TransactionDto): string {
+    const live = this.itemsById().get(tx.itemId);
+    const product = live?.productCatalog;
+    if (product) {
+      return `${product.sku} — ${product.name}`;
+    }
+    // Not in the live items list ⇒ the item was deleted; the server still
+    // resolves its product so the audit trail says what was removed.
+    if (tx.productName) {
+      return `${tx.productSku ? tx.productSku + ' — ' : ''}${tx.productName} (deleted)`;
+    }
+    return `Item #${tx.itemId} (deleted)`;
   }
 
   /**
