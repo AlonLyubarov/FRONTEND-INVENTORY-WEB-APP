@@ -32,14 +32,24 @@ export class LoginComponent {
       return;
     }
 
-    const state = history.state as { registeredUsername?: string; warehouseName?: string } | null;
+    const state = history.state as {
+      registeredUsername?: string;
+      warehouseName?: string;
+      verifyEmail?: boolean;
+    } | null;
     if (state?.registeredUsername) {
       this.form.patchValue({ username: state.registeredUsername });
-      this.registrationNotice.set(
-        state.warehouseName
-          ? `Your warehouse “${state.warehouseName}” was created. Sign in to start managing it.`
-          : 'Your account was created. Sign in to continue.'
-      );
+      if (state.verifyEmail) {
+        this.registrationNotice.set(
+          `Your warehouse “${state.warehouseName}” was created. We emailed you a verification link — confirm it before signing in.`
+        );
+      } else {
+        this.registrationNotice.set(
+          state.warehouseName
+            ? `Your warehouse “${state.warehouseName}” was created. Sign in to start managing it.`
+            : 'Your account was created. Sign in to continue.'
+        );
+      }
     }
   }
 

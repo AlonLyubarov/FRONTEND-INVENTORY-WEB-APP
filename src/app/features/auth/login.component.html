@@ -9,7 +9,12 @@
     }
 
     @if (serverError(); as error) {
-      <p class="form-error" role="alert">{{ error }}</p>
+      <p class="form-error" role="alert">
+        {{ error }}
+        @if (error.includes('not verified')) {
+          <br /><a routerLink="/verify-email">Resend the verification email →</a>
+        }
+      </p>
     }
 
     <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>

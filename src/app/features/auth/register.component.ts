@@ -66,9 +66,15 @@ export class RegisterComponent {
     };
     this.auth.register(request).subscribe({
       next: (user) => {
-        this.toast.success(`Your warehouse “${request.warehouseName}” was created.`);
+        this.toast.success(
+          `Your warehouse “${request.warehouseName}” was created — check your email to verify your account.`
+        );
         void this.router.navigate(['/login'], {
-          state: { registeredUsername: user.username, warehouseName: request.warehouseName }
+          state: {
+            registeredUsername: user.username,
+            warehouseName: request.warehouseName,
+            verifyEmail: true
+          }
         });
       },
       error: (err: unknown) => {
