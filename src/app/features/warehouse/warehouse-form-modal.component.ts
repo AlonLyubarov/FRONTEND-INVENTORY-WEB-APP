@@ -11,10 +11,11 @@ import {
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Observable } from 'rxjs';
 import { ModalComponent } from '../../shared/modal.component';
+import { LocationPickerComponent, PickedLocation } from '../../shared/location-picker.component';
 import { WarehouseService } from '../../core/warehouse.service';
 import { ToastService } from '../../core/toast.service';
 import { extractErrorMessage } from '../../core/error-message.util';
-import { WarehouseDto } from '../../core/models';
+import { WarehouseDto, WarehouseUpsertRequest } from '../../core/models';
 
 export type WarehouseFormMode = 'create-main' | 'create-sub' | 'edit';
 
@@ -25,7 +26,7 @@ export type WarehouseFormMode = 'create-main' | 'create-sub' | 'edit';
 @Component({
   selector: 'app-warehouse-form-modal',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ModalComponent, ReactiveFormsModule],
+  imports: [ModalComponent, ReactiveFormsModule, LocationPickerComponent],
   templateUrl: './warehouse-form-modal.component.html'
 })
 export class WarehouseFormModalComponent implements OnInit {
@@ -37,7 +38,13 @@ export class WarehouseFormModalComponent implements OnInit {
   /** Parent main warehouse — required when mode is 'create-sub'. */
   readonly parent = input<{ id: number; name: string } | null>(null);
   /** Warehouse being edited — required when mode is 'edit'. */
-  readonly warehouse = input<{ id: number; name: string; location: string } | null>(null);
+  readonly warehouse = input<{
+    id: number;
+    name: string;
+    location: string;
+    latitude?: number | null;
+    longitude?: number | null;
+  } | null>(null);
 
   readonly saved = output<WarehouseDto>();
   readonly closed = output<void>();
@@ -58,14 +65,39 @@ export class WarehouseFormModalComponent implements OnInit {
 
   protected readonly form = this.fb.group({
     name: ['', [Validators.required, Validators.maxLength(100)]],
-    location: ['', [Validators.required, Validators.maxLength(200)]]
+    location: ['', [Validators.required, Validators.maxLength(200)]],
+    latitude: [null as number | null],
+    longitude: [null as number | null]
   });
 
+  /** Sub-warehouses inherit the parent's site — no map point of their own. */
+  protected readonly needsCoordinates = computed(() => this.mode() !== 'create-sub');
+
   ngOnInit(): void {
+    if (this.needsCoordinates()) {
+      this.form.controls.latitude.addValidators(Validators.required);
+      this.form.controls.longitude.addValidators(Validators.required);
+    }
+
     const existing = this.warehouse();
     if (this.mode() === 'edit' && existing) {
-      this.form.patchValue({ name: existing.name, location: existing.location });
+      this.form.patchValue({
+        name: existing.name,
+        location: existing.location,
+        latitude: existing.latitude ?? null,
+        longitude: existing.longitude ?? null
+      });
     }
+  }
+
+  /** The picker's address input IS the location field. */
+  onAddressChange(address: string): void {
+    this.form.patchValue({ location: address });
+    this.form.controls.location.markAsTouched();
+  }
+
+  onLocationPicked(picked: PickedLocation): void {
+    this.form.patchValue({ latitude: picked.latitude, longitude: picked.longitude });
   }
 
   onSubmit(): void {
@@ -74,7 +106,13 @@ export class WarehouseFormModalComponent implements OnInit {
       return;
     }
 
-    const request = this.form.getRawValue();
+    const value = this.form.getRawValue();
+    const request: WarehouseUpsertRequest = {
+      name: value.name,
+      location: value.location,
+      latitude: value.latitude ?? undefined,
+      longitude: value.longitude ?? undefined
+    };
     let call: Observable<WarehouseDto>;
     let successMessage: string;
 

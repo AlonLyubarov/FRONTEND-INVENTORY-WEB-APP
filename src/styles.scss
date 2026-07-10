@@ -1379,6 +1379,229 @@ a:hover {
   padding-top: 1rem;
 }
 
+/* ── Maps (Leaflet) ────────────────────────────────────────────────────── */
+
+.location-picker__search {
+  position: relative;
+  margin-bottom: 0.5rem;
+}
+
+.location-picker__search input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 0.9rem;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.location-picker__search input:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(196, 155, 60, 0.14);
+}
+
+.location-picker__results {
+  position: absolute;
+  inset: 100% 0 auto 0;
+  z-index: 1000;
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0.25rem;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.location-picker__results button {
+  display: block;
+  width: 100%;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 0.85rem;
+  color: var(--text);
+  text-align: left;
+  padding: 0.45rem 0.55rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.location-picker__results button:hover {
+  background: var(--gold-soft);
+}
+
+.location-picker__map {
+  height: 240px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line-strong);
+  overflow: hidden;
+}
+
+.location-picker__status {
+  margin-top: 0.4rem;
+  font-size: 0.82rem;
+  font-family: var(--font-mono);
+}
+
+.map-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+@media (max-width: 960px) {
+  .map-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.map-card {
+  padding: 0.5rem;
+}
+
+.route-panel h2 {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  margin-bottom: 0.75rem;
+}
+
+.route-stops {
+  list-style: none;
+  margin: 0 0 0.9rem;
+  padding: 0;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.route-stop {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.route-stop:hover {
+  background: var(--gold-soft);
+}
+
+.route-stop input[type='checkbox'] {
+  accent-color: var(--gold-deep);
+  width: 1rem;
+  height: 1rem;
+}
+
+.route-stop__name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.route-panel__actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.route-summary {
+  margin-top: 1rem;
+  border-top: 1px solid var(--line);
+  padding-top: 1rem;
+}
+
+.route-summary__totals {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-bottom: 0.9rem;
+}
+
+.route-summary__totals .summary-card__value {
+  font-size: 1.25rem;
+}
+
+.route-order {
+  margin: 0;
+  padding-left: 1.4rem;
+  font-size: 0.92rem;
+}
+
+.route-order li {
+  padding: 0.15rem 0;
+  font-weight: 600;
+}
+
+/* Numbered route-stop badge (Leaflet divIcon) */
+.map-stop {
+  background: transparent;
+  border: none;
+}
+
+.map-stop__badge {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--primary-grad);
+  color: #fff;
+  border: 2px solid var(--gold-bright);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(30, 34, 50, 0.45);
+}
+
+.map-page__map {
+  height: min(62vh, 640px);
+  min-height: 380px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.map-notice {
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  border-left: 3px solid var(--warning);
+}
+
+/* Brand map pin (Leaflet divIcon) */
+.map-pin {
+  background: transparent;
+  border: none;
+}
+
+.map-pin__dot {
+  display: block;
+  width: 22px;
+  height: 22px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: var(--gold-grad);
+  border: 2px solid #fff;
+  box-shadow: 0 2px 8px rgba(30, 34, 50, 0.4);
+}
+
+.map-popup {
+  font-family: 'Instrument Sans', system-ui, sans-serif;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.map-popup a {
+  color: var(--gold-deep);
+  font-weight: 600;
+}
+
 /* Today's reminders banner on the dashboard */
 .reminder-banner {
   position: relative;

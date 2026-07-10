@@ -18,19 +18,39 @@
       }
     </label>
 
-    <label class="field">
-      <span class="field__label">Location</span>
-      <input type="text" formControlName="location" maxlength="200" />
-      @if (form.controls.location.touched && form.controls.location.invalid) {
-        <div class="field__error">
-          @if (form.controls.location.hasError('required')) {
-            Location is required.
-          } @else {
-            Location must be at most 200 characters.
-          }
-        </div>
-      }
-    </label>
+    @if (needsCoordinates()) {
+      <div class="field">
+        <span class="field__label">Location (address → coordinates)</span>
+        <app-location-picker
+          [initialAddress]="form.controls.location.value"
+          [initialLatitude]="form.controls.latitude.value"
+          [initialLongitude]="form.controls.longitude.value"
+          (addressChange)="onAddressChange($event)"
+          (picked)="onLocationPicked($event)"
+        />
+        @if (form.controls.location.touched && form.controls.location.hasError('required')) {
+          <div class="field__error">Location is required.</div>
+        }
+        @if (
+          form.controls.location.valid &&
+          form.controls.latitude.touched &&
+          form.controls.latitude.hasError('required')
+        ) {
+          <div class="field__error">
+            Pick one of the address suggestions (or click the map) so we get real coordinates.
+          </div>
+        }
+      </div>
+    } @else {
+      <label class="field">
+        <span class="field__label">Location</span>
+        <input type="text" formControlName="location" maxlength="200" />
+        @if (form.controls.location.touched && form.controls.location.hasError('required')) {
+          <div class="field__error">Location is required.</div>
+        }
+        <p class="field__hint">Sub-warehouses share the main warehouse's site and map location.</p>
+      </label>
+    }
 
     <div class="modal-actions">
       <button type="button" class="btn btn--ghost" (click)="closed.emit()">Cancel</button>

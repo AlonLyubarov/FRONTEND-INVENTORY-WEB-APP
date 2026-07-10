@@ -17,7 +17,13 @@ import { InviteUserModalComponent } from '../warehouse/invite-user-modal.compone
 interface WarehouseFormState {
   mode: WarehouseFormMode;
   parent?: { id: number; name: string };
-  warehouse?: { id: number; name: string; location: string };
+  warehouse?: {
+    id: number;
+    name: string;
+    location: string;
+    latitude?: number | null;
+    longitude?: number | null;
+  };
 }
 
 @Component({
@@ -95,7 +101,13 @@ export class DashboardComponent {
   openEdit(warehouse: WarehouseDto): void {
     this.formModal.set({
       mode: 'edit',
-      warehouse: { id: warehouse.id, name: warehouse.name, location: warehouse.location }
+      warehouse: {
+        id: warehouse.id,
+        name: warehouse.name,
+        location: warehouse.location,
+        latitude: warehouse.latitude,
+        longitude: warehouse.longitude
+      }
     });
   }
 

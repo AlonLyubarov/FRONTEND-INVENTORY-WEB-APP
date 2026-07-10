@@ -84,24 +84,30 @@
           }
         </label>
 
-        <label class="field">
-          <span class="field__label">Warehouse location</span>
-          <input
-            type="text"
-            formControlName="warehouseLocation"
-            maxlength="200"
+        <div class="field">
+          <span class="field__label">Warehouse address (address → coordinates)</span>
+          <app-location-picker
             placeholder="e.g. 12 Harbor Rd, Haifa"
+            (addressChange)="onAddressChange($event)"
+            (picked)="onLocationPicked($event)"
           />
-          @if (form.controls.warehouseLocation.touched && form.controls.warehouseLocation.invalid) {
+          @if (
+            form.controls.warehouseLocation.touched &&
+            form.controls.warehouseLocation.hasError('required')
+          ) {
+            <div class="field__error">Warehouse address is required.</div>
+          }
+          @if (
+            form.controls.warehouseLocation.valid &&
+            form.controls.warehouseLatitude.touched &&
+            form.controls.warehouseLatitude.hasError('required')
+          ) {
             <div class="field__error">
-              @if (form.controls.warehouseLocation.hasError('required')) {
-                Warehouse location is required.
-              } @else {
-                Warehouse location must be at most 200 characters.
-              }
+              Pick one of the address suggestions (or click the map) so we get your warehouse's
+              real coordinates — they're used to navigate between warehouses.
             </div>
           }
-        </label>
+        </div>
       </div>
 
       <button type="submit" class="btn btn--block" [disabled]="pending()">

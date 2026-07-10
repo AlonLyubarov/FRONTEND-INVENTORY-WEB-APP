@@ -1,0 +1,98 @@
+<div class="page-header">
+  <div>
+    <h1>Warehouse map</h1>
+    <p class="page-header__subtitle">
+      Pick warehouses, and get the best driving route between them — order, distance and time.
+    </p>
+  </div>
+</div>
+
+@if (unlocated().length > 0) {
+  <div class="card map-notice">
+    ⚠️ {{ unlocated().length }} warehouse(s) have no map location yet:
+    @for (warehouse of unlocated(); track warehouse.id; let last = $last) {
+      <a [routerLink]="['/warehouse', warehouse.id]">{{ warehouse.name }}</a>{{ last ? '' : ', ' }}
+    }
+    — open each one and use “Edit warehouse” to pin it.
+  </div>
+}
+
+<div class="map-layout">
+  <div class="card map-card">
+    <div #mapHost class="map-page__map"></div>
+  </div>
+
+  <div class="card route-panel">
+    <h2>🚚 Route planner</h2>
+
+    @if (located().length < 2) {
+      <p class="text-muted">
+        Pin at least two main warehouses on the map to plan a driving route between them.
+      </p>
+    } @else {
+      <ul class="route-stops">
+        @for (warehouse of located(); track warehouse.id) {
+          <li>
+            <label class="route-stop">
+              <input
+                type="checkbox"
+                [checked]="selected().has(warehouse.id)"
+                (change)="toggleStop(warehouse.id)"
+              />
+              <span class="route-stop__name">{{ warehouse.name }}</span>
+            </label>
+          </li>
+        }
+      </ul>
+
+      @if (routeError(); as error) {
+        <p class="form-error" role="alert">{{ error }}</p>
+      }
+
+      <div class="route-panel__actions">
+        <button
+          type="button"
+          class="btn"
+          [disabled]="routePending() || selectedStops().length < 2"
+          (click)="computeRoute()"
+        >
+          {{ routePending() ? 'Calculating…' : 'Calculate best route' }}
+        </button>
+        @if (route()) {
+          <button type="button" class="btn btn--ghost" (click)="clearRoute()">Clear</button>
+        }
+      </div>
+
+      @if (route(); as result) {
+        <div class="route-summary">
+          <div class="route-summary__totals">
+            <div class="summary-card">
+              <div class="summary-card__label">Driving distance</div>
+              <div class="summary-card__value">
+                {{ result.trip.distanceMeters / 1000 | number: '1.1-1' }} km
+              </div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-card__label">Driving time</div>
+              <div class="summary-card__value">{{ formatDuration(result.trip.durationSeconds) }}</div>
+            </div>
+          </div>
+
+          <ol class="route-order">
+            @for (stop of orderedStops(); track stop.id) {
+              <li>{{ stop.name }}</li>
+            }
+          </ol>
+        </div>
+      }
+    }
+  </div>
+</div>
+
+@if (!loading() && located().length === 0) {
+  <div class="card empty-state">
+    <div class="empty-state__icon">🗺️</div>
+    <div class="empty-state__title">No located warehouses yet</div>
+    <p>Pin your main warehouses on the map (Edit warehouse) and they'll show up here.</p>
+  </div>
+}

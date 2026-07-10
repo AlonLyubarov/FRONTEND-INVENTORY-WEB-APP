@@ -4,11 +4,12 @@ import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { ToastService } from '../../core/toast.service';
 import { extractErrorMessage } from '../../core/error-message.util';
+import { LocationPickerComponent, PickedLocation } from '../../shared/location-picker.component';
 
 @Component({
   selector: 'app-register',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, LocationPickerComponent],
   templateUrl: './register.component.html'
 })
 export class RegisterComponent {
@@ -26,8 +27,23 @@ export class RegisterComponent {
     email: ['', [Validators.required, Validators.email]],
     password: ['', [Validators.required, Validators.minLength(8), Validators.pattern(/[A-Z]/)]],
     warehouseName: ['', [Validators.required, Validators.maxLength(100)]],
-    warehouseLocation: ['', [Validators.required, Validators.maxLength(200)]]
+    warehouseLocation: ['', [Validators.required, Validators.maxLength(200)]],
+    warehouseLatitude: [null as number | null, Validators.required],
+    warehouseLongitude: [null as number | null, Validators.required]
   });
+
+  /** The picker's address input IS the warehouse-location field. */
+  onAddressChange(address: string): void {
+    this.form.patchValue({ warehouseLocation: address });
+    this.form.controls.warehouseLocation.markAsTouched();
+  }
+
+  onLocationPicked(picked: PickedLocation): void {
+    this.form.patchValue({
+      warehouseLatitude: picked.latitude,
+      warehouseLongitude: picked.longitude
+    });
+  }
 
   onSubmit(): void {
     if (this.form.invalid || this.pending()) {
@@ -38,7 +54,16 @@ export class RegisterComponent {
     this.pending.set(true);
     this.serverError.set(null);
 
-    const request = this.form.getRawValue();
+    const value = this.form.getRawValue();
+    const request = {
+      username: value.username,
+      email: value.email,
+      password: value.password,
+      warehouseName: value.warehouseName,
+      warehouseLocation: value.warehouseLocation,
+      warehouseLatitude: value.warehouseLatitude!,
+      warehouseLongitude: value.warehouseLongitude!
+    };
     this.auth.register(request).subscribe({
       next: (user) => {
         this.toast.success(`Your warehouse “${request.warehouseName}” was created.`);

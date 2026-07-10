@@ -14,6 +14,11 @@ function isPublicUrl(url: string): boolean {
   );
 }
 
+/** Only our own API gets the token and the global error handling. */
+function isApiUrl(url: string): boolean {
+  return url.startsWith(environment.apiBaseUrl);
+}
+
 /**
  * Single functional interceptor implementing the app-wide HTTP rules:
  *  - Bearer token on everything except /auth/* and /warehouse/public-list
@@ -27,6 +32,11 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const auth = inject(AuthService);
   const router = inject(Router);
   const toast = inject(ToastService);
+
+  // External requests (e.g. OpenStreetMap geocoding) pass through untouched.
+  if (!isApiUrl(req.url)) {
+    return next(req);
+  }
 
   const isPublic = isPublicUrl(req.url);
 

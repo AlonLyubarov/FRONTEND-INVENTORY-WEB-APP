@@ -34,6 +34,9 @@ export interface WarehouseDto {
   id: number;
   name: string;
   location: string;
+  /** Real map coordinates — always set for main warehouses (null on legacy rows). */
+  latitude: number | null;
+  longitude: number | null;
   createdAt: string;
   updatedAt: string | null;
   userCount: number;
@@ -124,6 +127,9 @@ export interface RegisterRequest {
   password: string;
   warehouseName: string;
   warehouseLocation: string;
+  /** Real map coordinates of the new main warehouse (required). */
+  warehouseLatitude: number;
+  warehouseLongitude: number;
 }
 
 export interface LoginRequest {
@@ -134,6 +140,9 @@ export interface LoginRequest {
 export interface WarehouseUpsertRequest {
   name: string;
   location: string;
+  /** Required for main warehouses; ignored for sub-warehouses (inherited). */
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface InviteUserRequest {
@@ -170,4 +179,14 @@ export interface CreateReminderRequest {
   date: string;
   title: string;
   notes?: string;
+}
+
+/** Optimized driving trip through a set of stops (from /api/route/trip). */
+export interface RouteTripDto {
+  distanceMeters: number;
+  durationSeconds: number;
+  /** Ordered [latitude, longitude] pairs to draw as a polyline. */
+  geometry: [number, number][];
+  /** visitOrder[i] = 0-based position at which input stop i is visited. */
+  visitOrder: number[];
 }

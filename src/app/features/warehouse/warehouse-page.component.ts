@@ -37,7 +37,13 @@ type TabId = 'overview' | 'items' | 'transactions' | 'users';
 interface WarehouseFormState {
   mode: WarehouseFormMode;
   parent?: { id: number; name: string };
-  warehouse?: { id: number; name: string; location: string };
+  warehouse?: {
+    id: number;
+    name: string;
+    location: string;
+    latitude?: number | null;
+    longitude?: number | null;
+  };
 }
 
 @Component({
@@ -306,7 +312,13 @@ export class WarehousePageComponent {
     if (warehouse) {
       this.formModal.set({
         mode: 'edit',
-        warehouse: { id: warehouse.id, name: warehouse.name, location: warehouse.location }
+        warehouse: {
+          id: warehouse.id,
+          name: warehouse.name,
+          location: warehouse.location,
+          latitude: warehouse.latitude,
+          longitude: warehouse.longitude
+        }
       });
     }
   }
