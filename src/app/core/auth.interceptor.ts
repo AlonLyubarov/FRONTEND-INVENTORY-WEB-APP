@@ -70,6 +70,12 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
           expireSession();
         } else if (err.status === 403) {
           toast.error("You don't have access to this resource.");
+        } else if (err.status === 429) {
+          // Rate limited — surface the server's message, never a validation error
+          const body = err.error as { error?: string } | null;
+          toast.warning(
+            body?.error ?? 'Too many attempts. Please wait a moment and try again.'
+          );
         } else if (err.status >= 500) {
           toast.error('Something went wrong, please try again.');
         } else if (err.status === 0) {

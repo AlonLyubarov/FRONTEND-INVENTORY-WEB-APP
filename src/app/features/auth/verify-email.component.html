@@ -46,8 +46,16 @@
               <div class="field__error">Enter a valid email address.</div>
             }
           </label>
-          <button type="submit" class="btn btn--block" [disabled]="resendPending()">
-            {{ resendPending() ? 'Sending…' : 'Send verification link' }}
+          <button
+            type="submit"
+            class="btn btn--block"
+            [disabled]="resendPending() || cooldown() > 0"
+          >
+            @if (cooldown() > 0) {
+              Resend available in {{ cooldown() }}s
+            } @else {
+              {{ resendPending() ? 'Sending…' : 'Send verification link' }}
+            }
           </button>
         </form>
         <p class="auth-card__footer"><a routerLink="/login">Back to sign in</a></p>

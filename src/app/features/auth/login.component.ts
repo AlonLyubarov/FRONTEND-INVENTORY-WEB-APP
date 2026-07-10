@@ -18,6 +18,8 @@ export class LoginComponent {
 
   protected readonly pending = signal(false);
   protected readonly serverError = signal<string | null>(null);
+  /** True when the 401 was caused by an unverified email (server message match). */
+  protected readonly unverified = signal(false);
   /** Set when arriving from a successful registration. */
   protected readonly registrationNotice = signal<string | null>(null);
 
@@ -61,14 +63,23 @@ export class LoginComponent {
 
     this.pending.set(true);
     this.serverError.set(null);
+    this.unverified.set(false);
 
     this.auth.login(this.form.getRawValue()).subscribe({
       next: (response) => this.navigateForUser(response),
       error: (err: unknown) => {
         this.pending.set(false);
-        this.serverError.set(extractErrorMessage(err));
+        const message = extractErrorMessage(err);
+        this.serverError.set(message);
+        this.unverified.set(message.includes('not verified'));
       }
     });
+  }
+
+  /** Prefill the resend form when the login username looks like an email. */
+  resendParams(): { email?: string } {
+    const username = this.form.controls.username.value.trim();
+    return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(username) ? { email: username } : {};
   }
 
   private navigateForUser(user: AuthResponse): void {

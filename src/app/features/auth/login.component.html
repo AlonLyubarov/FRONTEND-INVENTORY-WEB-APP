@@ -11,8 +11,11 @@
     @if (serverError(); as error) {
       <p class="form-error" role="alert">
         {{ error }}
-        @if (error.includes('not verified')) {
-          <br /><a routerLink="/verify-email">Resend the verification email →</a>
+        @if (unverified()) {
+          <br />
+          <a routerLink="/verify-email" [queryParams]="resendParams()">
+            Resend verification email →
+          </a>
         }
       </p>
     }
