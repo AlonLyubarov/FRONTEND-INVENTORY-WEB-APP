@@ -3,9 +3,10 @@ import { DatePipe } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { WarehouseService } from '../../core/warehouse.service';
+import { ReminderService } from '../../core/reminder.service';
 import { ToastService } from '../../core/toast.service';
 import { extractErrorMessage } from '../../core/error-message.util';
-import { WarehouseDto } from '../../core/models';
+import { ReminderDto, WarehouseDto } from '../../core/models';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
 import {
   WarehouseFormModalComponent,
@@ -46,8 +47,33 @@ export class DashboardComponent {
   protected readonly deletePending = signal(false);
   protected readonly deleteError = signal<string | null>(null);
 
+  /** Reminders due today, surfaced at the top of the dashboard. */
+  protected readonly todayReminders = signal<ReminderDto[]>([]);
+  private readonly reminderService = inject(ReminderService);
+
   constructor() {
     this.reload();
+    this.loadTodayReminders();
+  }
+
+  private loadTodayReminders(): void {
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    this.reminderService.getAll().subscribe({
+      next: (reminders) =>
+        this.todayReminders.set(reminders.filter((r) => r.date.slice(0, 10) === today)),
+      error: () => this.todayReminders.set([])
+    });
+  }
+
+  dismissReminder(reminder: ReminderDto): void {
+    this.reminderService.delete(reminder.id).subscribe({
+      next: () => {
+        this.toast.success('Reminder done.');
+        this.todayReminders.update((list) => list.filter((r) => r.id !== reminder.id));
+      },
+      error: (err: unknown) => this.toast.error(extractErrorMessage(err))
+    });
   }
 
   protected reload(): void {

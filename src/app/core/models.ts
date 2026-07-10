@@ -107,6 +107,15 @@ export interface PublicWarehouseDto {
   name: string;
 }
 
+export interface ReminderDto {
+  id: number;
+  /** ISO date-time; the calendar day is the first 10 chars (YYYY-MM-DD). */
+  date: string;
+  title: string;
+  notes: string | null;
+  createdAt: string;
+}
+
 // ── Request payloads ────────────────────────────────────────────────────────
 
 export interface RegisterRequest {
@@ -154,4 +163,11 @@ export interface ProductCatalogUpsertRequest {
   name: string;
   price: number;
   barcode?: string;
+}
+
+export interface CreateReminderRequest {
+  /** Calendar day as YYYY-MM-DD. */
+  date: string;
+  title: string;
+  notes?: string;
 }

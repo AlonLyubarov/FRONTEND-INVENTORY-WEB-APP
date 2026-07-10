@@ -1,0 +1,103 @@
+<div class="page-header">
+  <div>
+    <h1>Calendar</h1>
+    <p class="page-header__subtitle">Personal reminders — visible only to you.</p>
+  </div>
+</div>
+
+<div class="calendar-layout">
+  <!-- ── Month grid ─────────────────────────────────────────────────── -->
+  <div class="card calendar-card">
+    <div class="calendar-head">
+      <button type="button" class="btn btn--ghost btn--sm" (click)="prevMonth()" aria-label="Previous month">
+        ←
+      </button>
+      <h2>{{ monthLabel() }}</h2>
+      <div class="calendar-head__actions">
+        <button type="button" class="btn btn--ghost btn--sm" (click)="goToday()">Today</button>
+        <button type="button" class="btn btn--ghost btn--sm" (click)="nextMonth()" aria-label="Next month">
+          →
+        </button>
+      </div>
+    </div>
+
+    <div class="calendar-grid">
+      @for (weekday of weekdays; track weekday) {
+        <div class="calendar-weekday">{{ weekday }}</div>
+      }
+
+      @for (cell of cells(); track cell.iso) {
+        <button
+          type="button"
+          class="calendar-day"
+          [class.calendar-day--out]="!cell.inMonth"
+          [class.calendar-day--today]="cell.isToday"
+          [class.calendar-day--selected]="selectedDate() === cell.iso"
+          (click)="selectDay(cell.iso)"
+        >
+          <span class="calendar-day__num">{{ cell.day }}</span>
+          @if (dayReminders(cell.iso).length > 0) {
+            <span class="calendar-day__count">{{ dayReminders(cell.iso).length }}</span>
+            <span class="calendar-day__peek">{{ dayReminders(cell.iso)[0].title }}</span>
+          }
+        </button>
+      }
+    </div>
+  </div>
+
+  <!-- ── Selected day panel ─────────────────────────────────────────── -->
+  <div class="card calendar-panel">
+    <h2>{{ selectedDate() | date: 'EEEE, MMM d' }}</h2>
+
+    @if (reminders() === null) {
+      <div class="skeleton skeleton-row"></div>
+      <div class="skeleton skeleton-row"></div>
+    } @else {
+      <ul class="reminder-list">
+        @for (reminder of selectedReminders(); track reminder.id) {
+          <li class="reminder-item">
+            <div class="reminder-item__body">
+              <div class="reminder-item__title">{{ reminder.title }}</div>
+              @if (reminder.notes) {
+                <div class="reminder-item__notes">{{ reminder.notes }}</div>
+              }
+            </div>
+            <button
+              type="button"
+              class="icon-btn"
+              title="Delete reminder"
+              (click)="deleteReminder(reminder)"
+            >
+              🗑️
+            </button>
+          </li>
+        } @empty {
+          <li class="reminder-empty">No reminders for this day.</li>
+        }
+      </ul>
+    }
+
+    <form class="reminder-form" [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
+      @if (serverError(); as error) {
+        <p class="form-error" role="alert">{{ error }}</p>
+      }
+
+      <label class="field">
+        <span class="field__label">New reminder</span>
+        <input type="text" formControlName="title" maxlength="200" placeholder="e.g. Monthly stock count" />
+        @if (form.controls.title.touched && form.controls.title.hasError('required')) {
+          <div class="field__error">Title is required.</div>
+        }
+      </label>
+
+      <label class="field">
+        <span class="field__label">Notes <span class="optional">(optional)</span></span>
+        <textarea formControlName="notes" rows="2" maxlength="500"></textarea>
+      </label>
+
+      <button type="submit" class="btn btn--block" [disabled]="pending()">
+        {{ pending() ? 'Adding…' : '+ Add reminder' }}
+      </button>
+    </form>
+  </div>
+</div>

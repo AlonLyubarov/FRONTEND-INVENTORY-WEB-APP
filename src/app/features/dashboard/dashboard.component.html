@@ -1,3 +1,32 @@
+@if (todayReminders().length > 0) {
+  <div class="card reminder-banner">
+    <div class="reminder-banner__head">
+      <h2>⏰ Today's reminders</h2>
+      <a class="btn btn--ghost btn--sm" routerLink="/calendar">Open calendar</a>
+    </div>
+    <ul class="reminder-list">
+      @for (reminder of todayReminders(); track reminder.id) {
+        <li class="reminder-item">
+          <div class="reminder-item__body">
+            <div class="reminder-item__title">{{ reminder.title }}</div>
+            @if (reminder.notes) {
+              <div class="reminder-item__notes">{{ reminder.notes }}</div>
+            }
+          </div>
+          <button
+            type="button"
+            class="btn btn--ghost btn--sm"
+            title="Mark as done (deletes the reminder)"
+            (click)="dismissReminder(reminder)"
+          >
+            ✓ Done
+          </button>
+        </li>
+      }
+    </ul>
+  </div>
+}
+
 <div class="page-header">
   <div>
     <h1>Dashboard</h1>
