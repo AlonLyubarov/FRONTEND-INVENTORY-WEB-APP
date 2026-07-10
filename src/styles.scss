@@ -1540,6 +1540,139 @@ a:hover {
   font-weight: 600;
 }
 
+/* Smart route planner */
+.plan-mode-tabs {
+  margin-bottom: 1rem;
+}
+
+.smart-intro {
+  font-size: 0.85rem;
+  margin: 0 0 0.9rem;
+}
+
+.smart-truck-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0 0.6rem;
+}
+
+.smart-stops {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 0.55rem 0.65rem;
+  margin-bottom: 0.9rem;
+}
+
+.smart-stops__head,
+.smart-stops__row {
+  display: grid;
+  grid-template-columns: 1fr 64px 90px;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.smart-stops__head {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 0.4rem;
+}
+
+.smart-stops__row {
+  padding: 0.22rem 0;
+}
+
+.smart-stops__row input {
+  padding: 0.3rem 0.45rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  width: 100%;
+}
+
+.smart-stops__name {
+  font-weight: 600;
+  font-size: 0.88rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.smart-method {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.8rem;
+  font-size: 0.85rem;
+}
+
+.smart-percent {
+  font-size: 0.85rem;
+  color: var(--success);
+}
+
+.smart-legend {
+  display: flex;
+  gap: 1.1rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin-bottom: 0.7rem;
+}
+
+.smart-legend__line {
+  display: inline-block;
+  width: 26px;
+  height: 0;
+  vertical-align: middle;
+  margin-inline-end: 0.3rem;
+}
+
+.smart-legend__line--gold {
+  border-top: 4px solid #b8912f;
+  border-radius: 2px;
+}
+
+.smart-legend__line--gray {
+  border-top: 3px dashed #8a8d99;
+}
+
+.smart-legs {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.smart-legs th {
+  text-align: left;
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  padding: 0.3rem 0.4rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.smart-legs td {
+  padding: 0.34rem 0.4rem;
+  border-bottom: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.smart-legs__names {
+  font-family: 'Instrument Sans', sans-serif;
+  font-weight: 600;
+  max-width: 170px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Numbered route-stop badge (Leaflet divIcon) */
 .map-stop {
   background: transparent;
@@ -1633,6 +1766,63 @@ a:hover {
 
 .reminder-banner .reminder-list {
   margin-bottom: 0;
+}
+
+.shift-banner::before {
+  background: var(--primary-grad);
+}
+
+/* Shift assignment form on the warehouse Schedule tab */
+.schedule-assign h2 {
+  margin-bottom: 0.8rem;
+}
+
+.schedule-assign__grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 0.8fr 0.8fr;
+  gap: 0 0.7rem;
+}
+
+@media (max-width: 720px) {
+  .schedule-assign__grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* ── Bidirectional user content (Hebrew/RTL aware) ─────────────────────── */
+/* The UI chrome stays English/LTR, but USER-ENTERED content (warehouse
+   names, products, notes, reminders…) may be Hebrew. `unicode-bidi:
+   plaintext` makes each of these elements resolve its own direction from
+   its first strong character — Hebrew renders right-to-left and
+   right-aligned, English stays exactly as it is. */
+
+input,
+textarea,
+select,
+option,
+.data-table td,
+.warehouse-card__head h2,
+.page-header h1,
+.chip,
+.sidenav__link,
+.tree__node,
+.reminder-item__title,
+.reminder-item__notes,
+.calendar-day__peek,
+.notes-cell,
+.map-popup,
+.smart-stops__name,
+.smart-legs__names,
+.route-stop__name,
+.route-order li,
+.modal-header h2,
+.empty-state__title,
+.toast__message,
+.confirm-message,
+.confirm-warning,
+.form-error,
+.auth-info {
+  unicode-bidi: plaintext;
 }
 
 /* ── Misc ──────────────────────────────────────────────────────────────── */

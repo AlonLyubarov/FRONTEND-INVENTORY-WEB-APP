@@ -25,10 +25,160 @@
   <div class="card route-panel">
     <h2>🚚 Route planner</h2>
 
+    <div class="tabs plan-mode-tabs">
+      <button
+        type="button"
+        class="tab"
+        [class.active]="planMode() === 'trip'"
+        (click)="setPlanMode('trip')"
+      >
+        Simple trip
+      </button>
+      <button
+        type="button"
+        class="tab"
+        [class.active]="planMode() === 'smart'"
+        (click)="setPlanMode('smart')"
+      >
+        🧠 Smart route
+      </button>
+    </div>
+
     @if (located().length < 2) {
       <p class="text-muted">
         Pin at least two main warehouses on the map to plan a driving route between them.
       </p>
+    } @else if (planMode() === 'smart') {
+      <p class="text-muted smart-intro">
+        Weight-aware fuel model + inventory urgency. The truck gets lighter as it delivers —
+        the algorithm finds the visiting order with the lowest fuel + urgency score.
+      </p>
+
+      <label class="field">
+        <span class="field__label">Depot (start point)</span>
+        <select [value]="depotId()" (change)="depotId.set(+$any($event.target).value)">
+          @for (warehouse of located(); track warehouse.id) {
+            <option [value]="warehouse.id">{{ warehouse.name }}</option>
+          }
+        </select>
+      </label>
+
+      <div class="smart-truck-grid">
+        <label class="field">
+          <span class="field__label">Truck tare (kg)</span>
+          <input type="number" min="500" [value]="truckTareKg()"
+                 (change)="truckTareKg.set(+$any($event.target).value || 3500)" />
+        </label>
+        <label class="field">
+          <span class="field__label">Load on board (kg)</span>
+          <input type="number" min="0" [value]="truckLoadKg()"
+                 (change)="truckLoadKg.set(+$any($event.target).value || 0)" />
+        </label>
+        <label class="field">
+          <span class="field__label">Capacity (kg)</span>
+          <input type="number" min="1" [value]="truckCapacityKg()"
+                 (change)="truckCapacityKg.set(+$any($event.target).value || 1200)" />
+        </label>
+      </div>
+
+      <label class="field">
+        <span class="field__label">
+          Urgency weight (λ) <span class="optional">— 0 = fuel only, higher = urgency first</span>
+        </span>
+        <input type="number" min="0" max="1" step="0.01" [value]="urgencyWeight()"
+               (change)="urgencyWeight.set(+$any($event.target).value || 0)" />
+      </label>
+
+      <div class="smart-stops">
+        <div class="smart-stops__head">
+          <span>Stop</span><span>Urgency</span><span>Δ cargo (kg)</span>
+        </div>
+        @for (warehouse of smartStops(); track warehouse.id) {
+          <div class="smart-stops__row">
+            <span class="smart-stops__name">{{ warehouse.name }}</span>
+            <input type="number" min="1" max="10" [value]="paramsFor(warehouse.id).urgency"
+                   (change)="setUrgency(warehouse.id, $any($event.target).value)" />
+            <input type="number" step="10" [value]="paramsFor(warehouse.id).loadDeltaKg"
+                   (change)="setLoadDelta(warehouse.id, $any($event.target).value)" />
+          </div>
+        } @empty {
+          <p class="text-muted">Select at least two non-depot warehouses in the trip tab list.</p>
+        }
+      </div>
+
+      @if (smartError(); as error) {
+        <p class="form-error" role="alert">{{ error }}</p>
+      }
+
+      <div class="route-panel__actions">
+        <button
+          type="button"
+          class="btn"
+          [disabled]="smartPending() || smartStops().length < 2"
+          (click)="computeSmartRoute()"
+        >
+          {{ smartPending() ? 'Optimizing…' : '🧠 Optimize route' }}
+        </button>
+        @if (smartResult()) {
+          <button type="button" class="btn btn--ghost" (click)="clearRoute()">Clear</button>
+        }
+      </div>
+
+      @if (smartResult(); as result) {
+        <div class="route-summary">
+          <div class="smart-method">
+            @if (result.method === 'Exhaustive') {
+              <span class="badge badge--success">✓ Verified optimum</span>
+            } @else {
+              <span class="badge badge--shift-manager">Nearest-Neighbor + 2-opt</span>
+            }
+            <span class="text-muted">{{ result.routesEvaluated | number }} orders evaluated</span>
+          </div>
+
+          <div class="route-summary__totals">
+            <div class="summary-card">
+              <div class="summary-card__label">Fuel saved vs naive</div>
+              <div class="summary-card__value">
+                {{ result.fuelSavedLiters | number: '1.1-1' }} L
+                <span class="smart-percent">({{ result.fuelSavedPercent | number: '1.0-1' }}%)</span>
+              </div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-card__label">Total fuel</div>
+              <div class="summary-card__value">
+                {{ result.optimized.totalFuelLiters | number: '1.1-1' }} L
+              </div>
+            </div>
+          </div>
+
+          <div class="smart-legend">
+            <span><i class="smart-legend__line smart-legend__line--gold"></i> optimized</span>
+            <span><i class="smart-legend__line smart-legend__line--gray"></i> naive order</span>
+          </div>
+
+          <table class="smart-legs">
+            <thead>
+              <tr><th>Leg</th><th>Km</th><th>Truck kg</th><th>Fuel L</th></tr>
+            </thead>
+            <tbody>
+              @for (leg of result.optimized.legs; track $index) {
+                <tr>
+                  <td class="smart-legs__names">
+                    {{ nameOf(leg.fromWarehouseId) }} → {{ nameOf(leg.toWarehouseId) }}
+                  </td>
+                  <td>{{ leg.distanceKm | number: '1.0-1' }}</td>
+                  <td>{{ leg.grossWeightKg | number: '1.0-0' }}</td>
+                  <td>{{ leg.fuelLiters | number: '1.1-1' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+          <p class="field__hint">
+            Watch the “Truck kg” column — deliveries make the truck lighter, so every following
+            kilometer burns less fuel. That's what the optimizer exploits.
+          </p>
+        </div>
+      }
     } @else {
       <ul class="route-stops">
         @for (warehouse of located(); track warehouse.id) {

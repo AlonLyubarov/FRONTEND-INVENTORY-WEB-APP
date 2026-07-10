@@ -72,6 +72,14 @@
       <button type="button" class="tab" [class.active]="activeTab() === 'users'" (click)="setTab('users')">
         Users
       </button>
+      <button
+        type="button"
+        class="tab"
+        [class.active]="activeTab() === 'schedule'"
+        (click)="setTab('schedule')"
+      >
+        Schedule
+      </button>
     }
   </div>
 
@@ -357,6 +365,88 @@
           }
         } @else {
           <div class="skeleton skeleton-row"></div>
+          <div class="skeleton skeleton-row"></div>
+          <div class="skeleton skeleton-row"></div>
+        }
+      </div>
+    }
+
+    <!-- ── Work schedule (Admin owner, MAIN warehouse only) ─────────── -->
+    @case ('schedule') {
+      <div class="card schedule-assign">
+        <h2>Assign a shift</h2>
+        @if (assignError(); as error) {
+          <p class="form-error" role="alert">{{ error }}</p>
+        }
+        <div class="schedule-assign__grid">
+          <label class="field">
+            <span class="field__label">Team member</span>
+            <select
+              [value]="assignUserId() ?? ''"
+              (change)="assignUserId.set(+$any($event.target).value || null)"
+            >
+              <option value="" disabled selected>Select…</option>
+              @for (user of users() ?? []; track user.id) {
+                <option [value]="user.id">{{ user.username }}</option>
+              }
+            </select>
+          </label>
+          <label class="field">
+            <span class="field__label">Date</span>
+            <input type="date" [value]="assignDate()" (change)="assignDate.set($any($event.target).value)" />
+          </label>
+          <label class="field">
+            <span class="field__label">Start</span>
+            <input type="time" [value]="assignStart()" (change)="assignStart.set($any($event.target).value)" />
+          </label>
+          <label class="field">
+            <span class="field__label">End</span>
+            <input type="time" [value]="assignEnd()" (change)="assignEnd.set($any($event.target).value)" />
+          </label>
+        </div>
+        <label class="field">
+          <span class="field__label">Notes <span class="optional">(optional)</span></span>
+          <input type="text" maxlength="300" [value]="assignNotes()" (input)="assignNotes.set($any($event.target).value)" />
+        </label>
+        <button type="button" class="btn" [disabled]="assignPending()" (click)="assignShift()">
+          {{ assignPending() ? 'Assigning…' : '+ Assign shift' }}
+        </button>
+      </div>
+
+      <div class="table-card" style="margin-top: 1rem">
+        <div class="table-toolbar"><h2>Upcoming schedule</h2></div>
+        @if (shifts(); as shiftList) {
+          @if (shiftList.length === 0) {
+            <div class="empty-state">
+              <div class="empty-state__icon">🕐</div>
+              <div class="empty-state__title">No shifts scheduled</div>
+              <p>Assign the first shift above — the team member will see it on their dashboard.</p>
+            </div>
+          } @else {
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr><th>Date</th><th>Team member</th><th>Hours</th><th>Notes</th><th></th></tr>
+                </thead>
+                <tbody>
+                  @for (shift of shiftList; track shift.id) {
+                    <tr>
+                      <td data-label="Date">{{ shift.date | date: 'EEE, MMM d' }}</td>
+                      <td data-label="Member">{{ shift.username }}</td>
+                      <td data-label="Hours" class="cell-num">{{ shift.startTime }}–{{ shift.endTime }}</td>
+                      <td data-label="Notes" class="cell-muted notes-cell">{{ shift.notes ?? '—' }}</td>
+                      <td class="cell-actions">
+                        <button type="button" class="icon-btn" title="Remove shift" (click)="deleteShift(shift)">
+                          🗑️
+                        </button>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        } @else {
           <div class="skeleton skeleton-row"></div>
           <div class="skeleton skeleton-row"></div>
         }

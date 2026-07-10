@@ -17,7 +17,12 @@ import * as L from 'leaflet';
 import { WarehouseService } from '../../core/warehouse.service';
 import { RouteService } from '../../core/route.service';
 import { extractErrorMessage } from '../../core/error-message.util';
-import { RouteTripDto, WarehouseDto } from '../../core/models';
+import {
+  OptimizeRouteResultDto,
+  RouteTripDto,
+  SmartRouteStopRequest,
+  WarehouseDto
+} from '../../core/models';
 
 type LocatedWarehouse = WarehouseDto & { latitude: number; longitude: number };
 
@@ -64,6 +69,21 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   protected readonly routeError = signal<string | null>(null);
   protected readonly route = signal<{ trip: RouteTripDto; stops: LocatedWarehouse[] } | null>(null);
 
+  // ── Smart route (weight-based fuel + urgency) ─────────────────────────
+  protected readonly planMode = signal<'trip' | 'smart'>('trip');
+  protected readonly depotId = signal<number | null>(null);
+  protected readonly truckTareKg = signal(3500);
+  protected readonly truckLoadKg = signal(1000);
+  protected readonly truckCapacityKg = signal(1200);
+  protected readonly urgencyWeight = signal(0.02);
+  /** Per-stop urgency (1-10) and cargo delta, keyed by warehouse id. */
+  protected readonly stopParams = signal<Map<number, { urgency: number; loadDeltaKg: number }>>(
+    new Map()
+  );
+  protected readonly smartPending = signal(false);
+  protected readonly smartError = signal<string | null>(null);
+  protected readonly smartResult = signal<OptimizeRouteResultDto | null>(null);
+
   /** Stops of the computed route, in actual visit order. */
   protected readonly orderedStops = computed(() => {
     const result = this.route();
@@ -93,6 +113,9 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         // All stops start selected until the user starts curating the list.
         if (!this.selectionTouched) {
           this.selected.set(new Set(located.map((w) => w.id)));
+        }
+        if (this.depotId() === null && located.length > 0) {
+          this.depotId.set(located[0].id);
         }
         this.plot(located);
       });
@@ -167,8 +190,131 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   clearRoute(): void {
     this.route.set(null);
     this.routeError.set(null);
+    this.smartResult.set(null);
+    this.smartError.set(null);
     this.routeLayer?.clearLayers();
     this.plot(this.located());
+  }
+
+  // ── Smart route (weight-based fuel + urgency) ─────────────────────────
+
+  setPlanMode(mode: 'trip' | 'smart'): void {
+    this.planMode.set(mode);
+    this.clearRoute();
+  }
+
+  nameOf(id: number): string {
+    return this.located().find((w) => w.id === id)?.name ?? `#${id}`;
+  }
+
+  /** Stops eligible for the smart route: selected, located, and not the depot. */
+  smartStops(): LocatedWarehouse[] {
+    const depot = this.depotId();
+    return this.selectedStops().filter((w) => w.id !== depot);
+  }
+
+  paramsFor(id: number): { urgency: number; loadDeltaKg: number } {
+    return this.stopParams().get(id) ?? { urgency: 5, loadDeltaKg: -100 };
+  }
+
+  setUrgency(id: number, raw: string): void {
+    const urgency = Math.min(10, Math.max(1, Number(raw) || 1));
+    this.stopParams.update((map) => {
+      const next = new Map(map);
+      next.set(id, { ...this.paramsFor(id), urgency });
+      return next;
+    });
+  }
+
+  setLoadDelta(id: number, raw: string): void {
+    const loadDeltaKg = Number(raw) || 0;
+    this.stopParams.update((map) => {
+      const next = new Map(map);
+      next.set(id, { ...this.paramsFor(id), loadDeltaKg });
+      return next;
+    });
+  }
+
+  computeSmartRoute(): void {
+    const depot = this.depotId();
+    const stops = this.smartStops();
+    if (depot === null || stops.length < 2 || this.smartPending()) {
+      return;
+    }
+
+    const stopRequests: SmartRouteStopRequest[] = stops.map((w) => ({
+      warehouseId: w.id,
+      urgencyScore: this.paramsFor(w.id).urgency,
+      loadDeltaKg: this.paramsFor(w.id).loadDeltaKg
+    }));
+
+    this.smartPending.set(true);
+    this.smartError.set(null);
+
+    this.routeService
+      .optimizeSmartRoute({
+        depotWarehouseId: depot,
+        truck: {
+          tareWeightKg: this.truckTareKg(),
+          currentLoadKg: this.truckLoadKg(),
+          maxCapacityKg: this.truckCapacityKg()
+        },
+        stops: stopRequests,
+        urgencyWeight: this.urgencyWeight()
+      })
+      .subscribe({
+        next: (result) => {
+          this.smartPending.set(false);
+          this.smartResult.set(result);
+          this.drawSmartRoute(result);
+        },
+        error: (err: unknown) => {
+          this.smartPending.set(false);
+          this.smartError.set(extractErrorMessage(err));
+        }
+      });
+  }
+
+  private drawSmartRoute(result: OptimizeRouteResultDto): void {
+    if (!this.viewReady || !this.map || !this.routeLayer || !this.markersLayer) {
+      return;
+    }
+
+    this.routeLayer.clearLayers();
+    this.markersLayer.clearLayers();
+
+    // Naive baseline: dashed gray, drawn first (underneath)
+    L.polyline(result.naive.geometry, {
+      color: '#8a8d99',
+      weight: 3,
+      opacity: 0.7,
+      dashArray: '6 8'
+    }).addTo(this.routeLayer);
+
+    // Optimized: solid gold on top
+    const optimizedLine = L.polyline(result.optimized.geometry, {
+      color: '#b8912f',
+      weight: 5,
+      opacity: 0.9
+    }).addTo(this.routeLayer);
+
+    // Depot marker + numbered stops in optimized visit order
+    const depot = this.located().find((w) => w.id === this.depotId());
+    if (depot) {
+      L.marker([depot.latitude, depot.longitude], { icon: this.stopIcon(0) })
+        .bindPopup(this.popupFor(depot))
+        .addTo(this.routeLayer);
+    }
+    result.optimized.orderedWarehouseIds.forEach((id, index) => {
+      const stop = this.located().find((w) => w.id === id);
+      if (stop) {
+        L.marker([stop.latitude, stop.longitude], { icon: this.stopIcon(index + 1) })
+          .bindPopup(this.popupFor(stop))
+          .addTo(this.routeLayer!);
+      }
+    });
+
+    this.map.fitBounds(optimizedLine.getBounds(), { padding: [48, 48] });
   }
 
   protected formatDuration(seconds: number): string {

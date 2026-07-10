@@ -13,10 +13,12 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { WarehouseService } from '../../core/warehouse.service';
 import { ItemService } from '../../core/item.service';
+import { ShiftService } from '../../core/shift.service';
 import { ToastService } from '../../core/toast.service';
 import { extractErrorMessage } from '../../core/error-message.util';
 import {
   ItemDto,
+  ShiftDto,
   TransactionDto,
   UserDto,
   WarehouseDetailsDto,
@@ -32,7 +34,7 @@ import {
 } from './warehouse-form-modal.component';
 import { InviteUserModalComponent } from './invite-user-modal.component';
 
-type TabId = 'overview' | 'items' | 'transactions' | 'users';
+type TabId = 'overview' | 'items' | 'transactions' | 'users' | 'schedule';
 
 interface WarehouseFormState {
   mode: WarehouseFormMode;
@@ -44,6 +46,11 @@ interface WarehouseFormState {
     latitude?: number | null;
     longitude?: number | null;
   };
+}
+
+function todayIso(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
 
 @Component({
@@ -98,6 +105,18 @@ export class WarehousePageComponent {
   protected readonly removeUserPending = signal(false);
   protected readonly removeUserError = signal<string | null>(null);
 
+  // ── Work schedule (shifts) ────────────────────────────────────────────
+  private readonly shiftService = inject(ShiftService);
+  protected readonly shifts = signal<ShiftDto[] | null>(null);
+  private shiftsRequested = false;
+  protected readonly assignUserId = signal<number | null>(null);
+  protected readonly assignDate = signal<string>(todayIso());
+  protected readonly assignStart = signal('08:00');
+  protected readonly assignEnd = signal('16:00');
+  protected readonly assignNotes = signal('');
+  protected readonly assignPending = signal(false);
+  protected readonly assignError = signal<string | null>(null);
+
   private usersRequested = false;
 
   protected readonly isMain = computed(() => this.warehouse()?.parentWarehouseId === null);
@@ -109,8 +128,8 @@ export class WarehousePageComponent {
     if (requested === 'items' || requested === 'transactions') {
       return requested;
     }
-    if (requested === 'users' && this.showUsersTab()) {
-      return 'users';
+    if ((requested === 'users' || requested === 'schedule') && this.showUsersTab()) {
+      return requested;
     }
     return 'overview';
   });
@@ -149,14 +168,18 @@ export class WarehousePageComponent {
       untracked(() => this.loadCore(id));
     });
 
-    // Lazy load for the users tab (admin-only, separate endpoint).
+    // Lazy loads for the admin-only tabs (users list, schedule).
     effect(() => {
       const tab = this.activeTab();
       const id = this.warehouseId();
       untracked(() => {
-        if (tab === 'users' && !this.usersRequested) {
+        if ((tab === 'users' || tab === 'schedule') && !this.usersRequested) {
           this.usersRequested = true;
           this.loadUsers(id);
+        }
+        if (tab === 'schedule' && !this.shiftsRequested) {
+          this.shiftsRequested = true;
+          this.loadShifts(id);
         }
       });
     });
@@ -170,8 +193,10 @@ export class WarehousePageComponent {
     this.items.set(null);
     this.transactions.set(null);
     this.users.set(null);
+    this.shifts.set(null);
     this.loadError.set(null);
     this.usersRequested = false;
+    this.shiftsRequested = false;
 
     if (!Number.isFinite(id)) {
       this.loadError.set('Invalid warehouse.');
@@ -381,6 +406,58 @@ export class WarehousePageComponent {
     this.loadUsers(this.warehouseId());
     this.loadDetails(this.warehouseId());
     this.refreshSharedCache();
+  }
+
+  // ── Work schedule ─────────────────────────────────────────────────────
+
+  private loadShifts(id: number): void {
+    this.shiftService.getForWarehouse(id).subscribe({
+      next: (shifts) => this.shifts.set(shifts),
+      error: () => this.shifts.set([])
+    });
+  }
+
+  assignShift(): void {
+    const userId = this.assignUserId();
+    if (userId === null || !this.assignDate() || this.assignPending()) {
+      this.assignError.set('Pick a team member and a date.');
+      return;
+    }
+
+    this.assignPending.set(true);
+    this.assignError.set(null);
+
+    this.shiftService
+      .create({
+        userId,
+        warehouseId: this.warehouseId(),
+        date: this.assignDate(),
+        startTime: this.assignStart(),
+        endTime: this.assignEnd(),
+        notes: this.assignNotes().trim() || undefined
+      })
+      .subscribe({
+        next: () => {
+          this.assignPending.set(false);
+          this.assignNotes.set('');
+          this.toast.success('Shift assigned.');
+          this.loadShifts(this.warehouseId());
+        },
+        error: (err: unknown) => {
+          this.assignPending.set(false);
+          this.assignError.set(extractErrorMessage(err));
+        }
+      });
+  }
+
+  deleteShift(shift: ShiftDto): void {
+    this.shiftService.delete(shift.id).subscribe({
+      next: () => {
+        this.toast.success('Shift removed.');
+        this.shifts.update((list) => (list ?? []).filter((s) => s.id !== shift.id));
+      },
+      error: (err: unknown) => this.toast.error(extractErrorMessage(err))
+    });
   }
 
   askRemoveUser(user: UserDto): void {

@@ -4,9 +4,10 @@ import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { WarehouseService } from '../../core/warehouse.service';
 import { ReminderService } from '../../core/reminder.service';
+import { ShiftService } from '../../core/shift.service';
 import { ToastService } from '../../core/toast.service';
 import { extractErrorMessage } from '../../core/error-message.util';
-import { ReminderDto, WarehouseDto } from '../../core/models';
+import { ReminderDto, ShiftDto, WarehouseDto } from '../../core/models';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
 import {
   WarehouseFormModalComponent,
@@ -57,9 +58,19 @@ export class DashboardComponent {
   protected readonly todayReminders = signal<ReminderDto[]>([]);
   private readonly reminderService = inject(ReminderService);
 
+  /** The user's upcoming work shifts (employees/shift managers). */
+  protected readonly myShifts = signal<ShiftDto[]>([]);
+  private readonly shiftService = inject(ShiftService);
+
   constructor() {
     this.reload();
     this.loadTodayReminders();
+    if (!this.auth.isAdmin()) {
+      this.shiftService.getMine().subscribe({
+        next: (shifts) => this.myShifts.set(shifts),
+        error: () => this.myShifts.set([])
+      });
+    }
   }
 
   private loadTodayReminders(): void {

@@ -181,6 +181,88 @@ export interface CreateReminderRequest {
   notes?: string;
 }
 
+// ── Work schedule (shifts) ──────────────────────────────────────────────────
+
+export interface ShiftDto {
+  id: number;
+  userId: number;
+  username: string;
+  warehouseId: number;
+  warehouseName: string;
+  /** ISO date — the calendar day of the shift. */
+  date: string;
+  /** "HH:mm" */
+  startTime: string;
+  /** "HH:mm" */
+  endTime: string;
+  notes: string | null;
+}
+
+export interface CreateShiftRequest {
+  userId: number;
+  warehouseId: number;
+  /** YYYY-MM-DD */
+  date: string;
+  startTime: string;
+  endTime: string;
+  notes?: string;
+}
+
+// ── Smart route optimization (weight-based fuel + inventory urgency) ────────
+
+export interface TruckParams {
+  tareWeightKg: number;
+  currentLoadKg: number;
+  maxCapacityKg: number;
+}
+
+export interface SmartRouteStopRequest {
+  warehouseId: number;
+  /** 1 (relaxed) … 10 (critically low stock). */
+  urgencyScore: number;
+  /** Net cargo change at the stop: negative = deliver, positive = collect. */
+  loadDeltaKg: number;
+}
+
+export interface OptimizeRouteRequest {
+  depotWarehouseId: number;
+  truck: TruckParams;
+  stops: SmartRouteStopRequest[];
+  /** λ — fuel-liters equivalent of one urgency-point × km of lateness. */
+  urgencyWeight: number;
+}
+
+export interface SmartRouteLegDto {
+  fromWarehouseId: number;
+  toWarehouseId: number;
+  distanceKm: number;
+  /** Gross truck weight (tare + cargo) while driving this leg. */
+  grossWeightKg: number;
+  fuelLiters: number;
+  loadAfterStopKg: number;
+}
+
+export interface SmartRoutePlanDto {
+  orderedWarehouseIds: number[];
+  legs: SmartRouteLegDto[];
+  totalDistanceKm: number;
+  totalFuelLiters: number;
+  urgencyPenalty: number;
+  totalScore: number;
+  geometry: [number, number][];
+}
+
+export interface OptimizeRouteResultDto {
+  /** "Exhaustive" (verified optimum) or "NearestNeighbor2Opt" (heuristic). */
+  method: string;
+  routesEvaluated: number;
+  optimized: SmartRoutePlanDto;
+  naive: SmartRoutePlanDto;
+  fuelSavedLiters: number;
+  fuelSavedPercent: number;
+  scoreImprovedPercent: number;
+}
+
 /** Optimized driving trip through a set of stops (from /api/route/trip). */
 export interface RouteTripDto {
   distanceMeters: number;
