@@ -9,6 +9,14 @@
         <span class="topbar__username">{{ currentUser()?.username }}</span>
         <span [class]="roleBadge()">{{ roleName() }}</span>
         <button type="button" class="btn btn--ghost btn--sm" (click)="onLogout()">Log out</button>
+        <button
+          type="button"
+          class="icon-btn"
+          title="Delete my account"
+          (click)="deleteAccountOpen.set(true)"
+        >
+          🗑️
+        </button>
       </div>
     </header>
 
@@ -48,6 +56,10 @@
   </div>
 } @else {
   <router-outlet />
+}
+
+@if (deleteAccountOpen()) {
+  <app-delete-account-modal (closed)="deleteAccountOpen.set(false)" />
 }
 
 <app-toasts />

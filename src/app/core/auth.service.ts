@@ -42,6 +42,14 @@ export class AuthService {
     return this.http.post<{ message: string }>(`${this.baseUrl}/resend-verification`, { email });
   }
 
+  /**
+   * Permanently deletes the current account (password re-confirmation).
+   * Lives under /api/account (not /auth) so the JWT is attached.
+   */
+  deleteAccount(password: string): Observable<void> {
+    return this.http.post<void>(`${environment.apiBaseUrl}/account/delete`, { password });
+  }
+
   logout(): void {
     localStorage.removeItem(STORAGE_KEY);
     this.currentUserSignal.set(null);

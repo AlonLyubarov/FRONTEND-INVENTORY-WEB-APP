@@ -1,13 +1,14 @@
-import { Component, computed, effect, inject, untracked } from '@angular/core';
+import { Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthService } from './core/auth.service';
 import { WarehouseService } from './core/warehouse.service';
 import { ToastContainerComponent } from './shared/toast-container.component';
+import { DeleteAccountModalComponent } from './features/auth/delete-account-modal.component';
 import { roleBadgeClass, roleLabel } from './shared/badges';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, ToastContainerComponent],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, ToastContainerComponent, DeleteAccountModalComponent],
   templateUrl: './app.html'
 })
 export class App {
@@ -19,6 +20,7 @@ export class App {
   protected readonly isAdmin = this.auth.isAdmin;
   protected readonly currentUser = this.auth.currentUser;
   protected readonly warehouses = this.warehouseService.warehouses;
+  protected readonly deleteAccountOpen = signal(false);
 
   protected readonly roleBadge = computed(() => {
     const user = this.currentUser();
