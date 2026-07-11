@@ -108,6 +108,8 @@ export class WarehousePageComponent {
   // ── Work schedule (shifts) ────────────────────────────────────────────
   private readonly shiftService = inject(ShiftService);
   protected readonly shifts = signal<ShiftDto[] | null>(null);
+  /** The signed-in employee's own upcoming shifts (shown where they land). */
+  protected readonly myShifts = signal<ShiftDto[]>([]);
   private shiftsRequested = false;
   protected readonly assignUserId = signal<number | null>(null);
   protected readonly assignDate = signal<string>(todayIso());
@@ -163,6 +165,14 @@ export class WarehousePageComponent {
   });
 
   constructor() {
+    // Employees/shift managers land here after login — surface their schedule
+    if (!this.auth.isAdmin()) {
+      this.shiftService.getMine().subscribe({
+        next: (shifts) => this.myShifts.set(shifts),
+        error: () => this.myShifts.set([])
+      });
+    }
+
     effect(() => {
       const id = this.warehouseId();
       untracked(() => this.loadCore(id));

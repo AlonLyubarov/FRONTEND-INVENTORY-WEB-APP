@@ -12,6 +12,28 @@
     >
   }
 
+  @if (myShifts().length > 0) {
+    <div class="card reminder-banner shift-banner">
+      <div class="reminder-banner__head">
+        <h2>🕐 My upcoming shifts</h2>
+      </div>
+      <ul class="reminder-list">
+        @for (shift of myShifts(); track shift.id) {
+          <li class="reminder-item">
+            <div class="reminder-item__body">
+              <div class="reminder-item__title">
+                {{ shift.date | date: 'EEEE, MMM d' }} · {{ shift.startTime }}–{{ shift.endTime }}
+              </div>
+              @if (shift.notes) {
+                <div class="reminder-item__notes">{{ shift.notes }}</div>
+              }
+            </div>
+          </li>
+        }
+      </ul>
+    </div>
+  }
+
   <div class="page-header">
     <div>
       <h1>
