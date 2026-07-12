@@ -1,0 +1,10 @@
+node_modules
+dist
+.angular
+.git
+.gitignore
+out-tsc
+coverage
+.vscode
+*.log
+docs
