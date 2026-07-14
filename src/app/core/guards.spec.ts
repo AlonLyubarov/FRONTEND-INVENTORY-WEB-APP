@@ -1,31 +1,35 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, ActivatedRouteSnapshot, RouterStateSnapshot, UrlTree } from '@angular/router';
 import { provideHttpClient } from '@angular/common/http';
-import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { authGuard, adminGuard } from './guards';
-import { AuthResponse } from './models';
+import { AuthService } from './auth.service';
+import { AuthResponse, Role } from './models';
+import { environment } from '../../environments/environment';
 
-const STORAGE_KEY = 'inventory.auth';
-
-function storedSession(overrides: Partial<AuthResponse> = {}): AuthResponse {
+function session(role: Role = 'Admin'): AuthResponse {
   return {
     token: 'jwt-token',
-    refreshToken: 'refresh-token',
     username: 'alice',
-    role: 'Admin',
+    role,
     expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
     userId: 1,
-    warehouseId: 2,
-    ...overrides
+    warehouseId: 2
   };
 }
 
-function configure(session?: AuthResponse) {
+/** Configures TestBed and optionally logs the user in (session lives in memory). */
+function configure(loggedInAs?: Role): void {
   localStorage.clear();
-  if (session) localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
   TestBed.configureTestingModule({
     providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()]
   });
+  if (loggedInAs) {
+    const auth = TestBed.inject(AuthService);
+    const httpMock = TestBed.inject(HttpTestingController);
+    auth.login({ username: 'a', password: 'p' }).subscribe();
+    httpMock.expectOne(`${environment.apiBaseUrl}/auth/login`).flush(session(loggedInAs));
+  }
 }
 
 // The guards ignore their arguments (they read AuthService), so empty snapshots are fine.
@@ -38,8 +42,8 @@ const runAdminGuard = () => TestBed.runInInjectionContext(() => adminGuard(route
 describe('authGuard', () => {
   afterEach(() => localStorage.clear());
 
-  it('allows navigation for a valid session', () => {
-    configure(storedSession());
+  it('allows navigation for a logged-in user', () => {
+    configure('Admin');
     expect(runAuthGuard()).toBe(true);
   });
 
@@ -49,24 +53,18 @@ describe('authGuard', () => {
     expect(result).toBeInstanceOf(UrlTree);
     expect((result as UrlTree).toString()).toBe('/login');
   });
-
-  it('still allows an expired-access session that has a refresh token', () => {
-    // The guard is optimistic: the interceptor will refresh on the first API call.
-    configure(storedSession({ expiresAt: new Date(Date.now() - 1000).toISOString() }));
-    expect(runAuthGuard()).toBe(true);
-  });
 });
 
 describe('adminGuard', () => {
   afterEach(() => localStorage.clear());
 
   it('allows an Admin through', () => {
-    configure(storedSession({ role: 'Admin' }));
+    configure('Admin');
     expect(runAdminGuard()).toBe(true);
   });
 
   it('redirects a non-Admin to /dashboard', () => {
-    configure(storedSession({ role: 'Employee' }));
+    configure('Employee');
     const result = runAdminGuard();
     expect(result).toBeInstanceOf(UrlTree);
     expect((result as UrlTree).toString()).toBe('/dashboard');

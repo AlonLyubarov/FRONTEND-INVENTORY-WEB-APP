@@ -14,8 +14,6 @@ export const TRANSACTION_TYPES: TransactionType[] = ['StockIn', 'StockOut', 'Adj
 
 export interface AuthResponse {
   token: string;
-  /** Long-lived refresh token used to obtain a new access token when it expires. */
-  refreshToken: string;
   username: string;
   role: Role;
   expiresAt: string;

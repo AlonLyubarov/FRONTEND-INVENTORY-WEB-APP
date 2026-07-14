@@ -82,8 +82,9 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   return next(req).pipe(
     catchError((err: unknown) => {
       if (err instanceof HttpErrorResponse) {
-        // Access token rejected → try to refresh once, then replay the request.
-        if (err.status === 401 && !isPublic && auth.getRefreshToken()) {
+        // Access token rejected → try to refresh once (via the HttpOnly cookie),
+        // then replay the request. Only when we believe there is a session.
+        if (err.status === 401 && !isPublic && auth.isLoggedIn()) {
           return refreshAccessToken(auth).pipe(
             switchMap((freshToken) => next(attach(freshToken))),
             catchError((refreshErr: unknown) => {

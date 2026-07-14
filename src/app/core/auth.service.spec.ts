@@ -5,15 +5,12 @@ import { AuthService } from './auth.service';
 import { AuthResponse } from './models';
 import { environment } from '../../environments/environment';
 
-const STORAGE_KEY = 'inventory.auth';
-
 function session(overrides: Partial<AuthResponse> = {}): AuthResponse {
   return {
     token: 'jwt-token',
-    refreshToken: 'refresh-token',
     username: 'alice',
     role: 'Admin',
-    expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(), // +1h
+    expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
     userId: 1,
     warehouseId: 2,
     ...overrides
@@ -21,126 +18,101 @@ function session(overrides: Partial<AuthResponse> = {}): AuthResponse {
 }
 
 describe('AuthService', () => {
+  let service: AuthService;
   let httpMock: HttpTestingController;
+  const authUrl = `${environment.apiBaseUrl}/auth`;
 
-  function makeService(): AuthService {
+  beforeEach(() => {
+    localStorage.clear();
     TestBed.configureTestingModule({
       providers: [provideHttpClient(), provideHttpClientTesting()]
     });
-    const service = TestBed.inject(AuthService);
+    service = TestBed.inject(AuthService);
     httpMock = TestBed.inject(HttpTestingController);
-    return service;
-  }
+  });
 
-  beforeEach(() => localStorage.clear());
   afterEach(() => {
     httpMock.verify();
     localStorage.clear();
   });
 
-  it('starts logged out with no stored session', () => {
-    const service = makeService();
+  function logInAs(overrides: Partial<AuthResponse> = {}): void {
+    service.login({ username: 'alice', password: 'secret' }).subscribe();
+    httpMock.expectOne(`${authUrl}/login`).flush(session(overrides));
+  }
+
+  it('starts logged out', () => {
     expect(service.isLoggedIn()).toBe(false);
     expect(service.getToken()).toBeNull();
     expect(service.role()).toBeNull();
   });
 
-  it('stores the session and updates signals on successful login', () => {
-    const service = makeService();
-    const response = session();
-
+  it('stores the session in memory on login — and nothing in localStorage', () => {
     service.login({ username: 'alice', password: 'secret' }).subscribe();
-    const req = httpMock.expectOne(`${environment.apiBaseUrl}/auth/login`);
+    const req = httpMock.expectOne(`${authUrl}/login`);
     expect(req.request.method).toBe('POST');
-    req.flush(response);
+    expect(req.request.withCredentials).toBe(true); // needed to receive the HttpOnly cookie
+    req.flush(session());
 
     expect(service.isLoggedIn()).toBe(true);
     expect(service.getToken()).toBe('jwt-token');
     expect(service.isAdmin()).toBe(true);
     expect(service.warehouseId()).toBe(2);
-    expect(localStorage.getItem(STORAGE_KEY)).toContain('jwt-token');
+    // SECURITY: no token is persisted to localStorage
+    expect(localStorage.length).toBe(0);
   });
 
   it('classifies roles through computed signals', () => {
-    const service = makeService();
-    service.login({ username: 'e', password: 'p' }).subscribe();
-    httpMock.expectOne(`${environment.apiBaseUrl}/auth/login`).flush(session({ role: 'Employee' }));
-
+    logInAs({ role: 'Employee' });
     expect(service.isAdmin()).toBe(false);
     expect(service.isEmployee()).toBe(true);
     expect(service.isShiftManager()).toBe(false);
   });
 
-  it('clears the session and revokes the refresh token on logout', () => {
-    const service = makeService();
-    service.login({ username: 'a', password: 'p' }).subscribe();
-    httpMock.expectOne(`${environment.apiBaseUrl}/auth/login`).flush(session());
+  it('refreshes via the cookie (empty body) and updates the in-memory token', () => {
+    logInAs();
+    service.refresh().subscribe();
 
+    const req = httpMock.expectOne(`${authUrl}/refresh`);
+    expect(req.request.withCredentials).toBe(true);
+    expect(req.request.body).toEqual({}); // the credential is the cookie, not the body
+    req.flush(session({ token: 'new-jwt' }));
+
+    expect(service.getToken()).toBe('new-jwt');
+  });
+
+  it('clears memory and revokes server-side on logout', () => {
+    logInAs();
     service.logout();
 
-    // Logout fires a best-effort server-side revocation of the refresh token
-    const revoke = httpMock.expectOne(`${environment.apiBaseUrl}/auth/logout`);
-    expect(revoke.request.body.refreshToken).toBe('refresh-token');
-    revoke.flush({});
+    const req = httpMock.expectOne(`${authUrl}/logout`);
+    expect(req.request.withCredentials).toBe(true);
+    req.flush({});
 
     expect(service.isLoggedIn()).toBe(false);
     expect(service.getToken()).toBeNull();
-    expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
   });
 
-  it('exchanges the refresh token for a fresh session', () => {
-    const service = makeService();
-    service.login({ username: 'a', password: 'p' }).subscribe();
-    httpMock.expectOne(`${environment.apiBaseUrl}/auth/login`).flush(session());
-
-    service.refresh().subscribe();
-    const req = httpMock.expectOne(`${environment.apiBaseUrl}/auth/refresh`);
-    expect(req.request.body.refreshToken).toBe('refresh-token');
-    req.flush(session({ token: 'new-jwt', refreshToken: 'new-refresh' }));
-
-    expect(service.getToken()).toBe('new-jwt');
-    expect(service.getRefreshToken()).toBe('new-refresh');
+  it('does not call the server on logout when there is no session', () => {
+    service.logout();
+    httpMock.expectNone(`${authUrl}/logout`);
+    expect(service.isLoggedIn()).toBe(false);
   });
 
-  it('treats a future expiry as active and a past expiry as expired', () => {
-    const service = makeService();
-
-    service.login({ username: 'a', password: 'p' }).subscribe();
-    httpMock.expectOne(`${environment.apiBaseUrl}/auth/login`).flush(session());
-    expect(service.isSessionExpired()).toBe(false);
-
-    service.login({ username: 'a', password: 'p' }).subscribe();
-    httpMock
-      .expectOne(`${environment.apiBaseUrl}/auth/login`)
-      .flush(session({ expiresAt: new Date(Date.now() - 1000).toISOString() }));
-    expect(service.isSessionExpired()).toBe(true);
-  });
-
-  it('rehydrates a valid session from localStorage on construction', () => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(session()));
-    const service = makeService();
+  it('restoreSession rebuilds the session when the refresh cookie is valid', async () => {
+    const done = service.restoreSession();
+    httpMock.expectOne(`${authUrl}/refresh`).flush(session());
+    await done;
     expect(service.isLoggedIn()).toBe(true);
     expect(service.getToken()).toBe('jwt-token');
   });
 
-  it('keeps an expired-access session that still has a refresh token', () => {
-    // The access token is stale, but the refresh token lets the interceptor
-    // mint a new one — so the session survives a reload.
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify(session({ expiresAt: new Date(Date.now() - 1000).toISOString() }))
-    );
-    const service = makeService();
-    expect(service.isLoggedIn()).toBe(true);
-    expect(service.getRefreshToken()).toBe('refresh-token');
-  });
-
-  it('discards a stored session that has no refresh token', () => {
-    const { refreshToken, ...noRefresh } = session();
-    void refreshToken;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(noRefresh));
-    const service = makeService();
+  it('restoreSession stays logged out (and does not throw) with no valid cookie', async () => {
+    const done = service.restoreSession();
+    httpMock
+      .expectOne(`${authUrl}/refresh`)
+      .flush({}, { status: 401, statusText: 'Unauthorized' });
+    await done; // must resolve, never reject
     expect(service.isLoggedIn()).toBe(false);
-    expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
   });
 });

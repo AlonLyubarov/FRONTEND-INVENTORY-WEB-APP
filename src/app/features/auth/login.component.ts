@@ -29,7 +29,7 @@ export class LoginComponent {
   });
 
   constructor() {
-    if (this.auth.isLoggedIn() && !this.auth.isSessionExpired()) {
+    if (this.auth.isLoggedIn()) {
       this.navigateForUser(this.auth.currentUser()!);
       return;
     }

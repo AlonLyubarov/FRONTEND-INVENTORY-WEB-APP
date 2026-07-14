@@ -1,17 +1,25 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, tap, throwError } from 'rxjs';
+import { Observable, firstValueFrom, tap } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { AuthResponse, LoginRequest, RegisterRequest, UserDto } from './models';
 
-const STORAGE_KEY = 'inventory.auth';
-
+/**
+ * SECURITY: nothing security-related is stored in localStorage.
+ *  - The refresh token lives ONLY in an HttpOnly cookie (JS cannot read it, so
+ *    it is immune to XSS). The browser attaches it automatically to /api/auth.
+ *  - The short-lived access token + user info live ONLY in memory (this signal).
+ *    On a full page reload memory is lost, so the app calls restoreSession() at
+ *    startup: /auth/refresh uses the cookie to mint a new access token silently.
+ * `withCredentials` is required so the cross-origin dev setup (4200 → 5291)
+ * sends/receives the cookie; behind the reverse proxy in prod it is same-origin.
+ */
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = `${environment.apiBaseUrl}/auth`;
 
-  private readonly currentUserSignal = signal<AuthResponse | null>(readStoredSession());
+  private readonly currentUserSignal = signal<AuthResponse | null>(null);
 
   readonly currentUser = this.currentUserSignal.asReadonly();
   readonly isLoggedIn = computed(() => this.currentUserSignal() !== null);
@@ -22,29 +30,32 @@ export class AuthService {
   readonly warehouseId = computed(() => this.currentUserSignal()?.warehouseId ?? null);
 
   login(request: LoginRequest): Observable<AuthResponse> {
-    return this.http.post<AuthResponse>(`${this.baseUrl}/login`, request).pipe(
-      tap((response) => this.persistSession(response))
-    );
+    return this.http
+      .post<AuthResponse>(`${this.baseUrl}/login`, request, { withCredentials: true })
+      .pipe(tap((response) => this.currentUserSignal.set(response)));
   }
 
   /**
-   * Exchanges the stored refresh token for a fresh access token (and a rotated
-   * refresh token). Called by the interceptor when the access token has expired.
+   * Mints a new access token using the HttpOnly refresh cookie (sent
+   * automatically). Called by the interceptor on a 401 and by restoreSession().
+   * No body — the cookie carries the credential.
    */
   refresh(): Observable<AuthResponse> {
-    const refreshToken = this.currentUserSignal()?.refreshToken;
-    if (!refreshToken) {
-      return throwError(() => new Error('No refresh token available.'));
-    }
-    return this.http.post<AuthResponse>(`${this.baseUrl}/refresh`, { refreshToken }).pipe(
-      tap((response) => this.persistSession(response))
-    );
+    return this.http
+      .post<AuthResponse>(`${this.baseUrl}/refresh`, {}, { withCredentials: true })
+      .pipe(tap((response) => this.currentUserSignal.set(response)));
   }
 
-  /** Saves the session to memory (signal) and localStorage. */
-  private persistSession(response: AuthResponse): void {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(response));
-    this.currentUserSignal.set(response);
+  /**
+   * One-shot startup restore: try to rebuild the in-memory session from the
+   * refresh cookie. Never rejects — an anonymous visitor simply stays logged
+   * out, so app bootstrap is not blocked.
+   */
+  restoreSession(): Promise<void> {
+    return firstValueFrom(this.refresh()).then(
+      () => undefined,
+      () => undefined
+    );
   }
 
   register(request: RegisterRequest): Observable<UserDto> {
@@ -68,58 +79,19 @@ export class AuthService {
   }
 
   logout(): void {
-    // Best-effort server-side revocation so the refresh token can't be reused.
-    // Fire-and-forget: the local session is cleared regardless of the result.
-    const refreshToken = this.currentUserSignal()?.refreshToken;
-    if (refreshToken) {
-      this.http.post(`${this.baseUrl}/logout`, { refreshToken }).subscribe({
+    // Best-effort: revoke the refresh token and clear its cookie server-side.
+    // Fire-and-forget; the in-memory session is dropped regardless of the result.
+    // Only call the server when there is actually a session to end.
+    if (this.currentUserSignal() !== null) {
+      this.http.post(`${this.baseUrl}/logout`, {}, { withCredentials: true }).subscribe({
         next: () => {},
         error: () => {}
       });
     }
-    localStorage.removeItem(STORAGE_KEY);
     this.currentUserSignal.set(null);
   }
 
   getToken(): string | null {
     return this.currentUserSignal()?.token ?? null;
-  }
-
-  getRefreshToken(): string | null {
-    return this.currentUserSignal()?.refreshToken ?? null;
-  }
-
-  /** The token's expiresAt is checked before every request; expired ⇒ treated as 401. */
-  isSessionExpired(): boolean {
-    const user = this.currentUserSignal();
-    return !user || isExpired(user.expiresAt);
-  }
-}
-
-/** Single source of truth for expiry: malformed timestamps count as expired. */
-function isExpired(expiresAt: string): boolean {
-  const expiration = Date.parse(expiresAt);
-  return !Number.isFinite(expiration) || expiration <= Date.now();
-}
-
-function readStoredSession(): AuthResponse | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      return null;
-    }
-    const parsed = JSON.parse(raw) as AuthResponse;
-    // Keep the session as long as it can be refreshed: the access token may have
-    // expired (e.g. the tab was closed for an hour), but a valid refresh token
-    // lets the interceptor mint a new one on the first API call. A session with
-    // no refresh token is unusable and discarded.
-    if (!parsed.token || !parsed.refreshToken) {
-      localStorage.removeItem(STORAGE_KEY);
-      return null;
-    }
-    return parsed;
-  } catch {
-    localStorage.removeItem(STORAGE_KEY);
-    return null;
   }
 }

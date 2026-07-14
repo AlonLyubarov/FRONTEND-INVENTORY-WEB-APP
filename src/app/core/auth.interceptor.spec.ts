@@ -8,12 +8,11 @@ import { AuthService } from './auth.service';
 import { AuthResponse } from './models';
 import { environment } from '../../environments/environment';
 
-const STORAGE_KEY = 'inventory.auth';
+const authUrl = `${environment.apiBaseUrl}/auth`;
 
-function storedSession(overrides: Partial<AuthResponse> = {}): AuthResponse {
+function session(overrides: Partial<AuthResponse> = {}): AuthResponse {
   return {
     token: 'jwt-token',
-    refreshToken: 'refresh-token',
     username: 'alice',
     role: 'Admin',
     expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
@@ -27,9 +26,8 @@ describe('authInterceptor', () => {
   let http: HttpClient;
   let httpMock: HttpTestingController;
 
-  function setup(loggedIn: boolean) {
+  function setup(loggedIn: boolean): void {
     localStorage.clear();
-    if (loggedIn) localStorage.setItem(STORAGE_KEY, JSON.stringify(storedSession()));
     TestBed.configureTestingModule({
       providers: [
         provideHttpClient(withInterceptors([authInterceptor])),
@@ -39,6 +37,11 @@ describe('authInterceptor', () => {
     });
     http = TestBed.inject(HttpClient);
     httpMock = TestBed.inject(HttpTestingController);
+    if (loggedIn) {
+      // Establish an in-memory session (login is a public URL → no token attached)
+      TestBed.inject(AuthService).login({ username: 'a', password: 'p' }).subscribe();
+      httpMock.expectOne(`${authUrl}/login`).flush(session());
+    }
   }
 
   afterEach(() => {
@@ -57,9 +60,9 @@ describe('authInterceptor', () => {
 
   it('does NOT attach the token to public /auth endpoints', () => {
     setup(true);
-    http.post(`${environment.apiBaseUrl}/auth/login`, {}).subscribe();
+    http.post(`${authUrl}/resend-verification`, {}).subscribe();
 
-    const req = httpMock.expectOne(`${environment.apiBaseUrl}/auth/login`);
+    const req = httpMock.expectOne(`${authUrl}/resend-verification`);
     expect(req.request.headers.has('Authorization')).toBe(false);
     req.flush({});
   });
@@ -73,24 +76,25 @@ describe('authInterceptor', () => {
     req.flush({});
   });
 
-  it('refreshes the token on 401 and transparently retries the request', () => {
+  it('refreshes on 401 (via the cookie) and transparently retries the request', () => {
     setup(true);
     const auth = TestBed.inject(AuthService);
     const results: unknown[] = [];
 
     http.get(`${environment.apiBaseUrl}/warehouse`).subscribe({ next: (r) => results.push(r), error: () => {} });
 
-    // 1) original request is rejected
+    // 1) original request rejected
     httpMock
       .expectOne(`${environment.apiBaseUrl}/warehouse`)
       .flush({}, { status: 401, statusText: 'Unauthorized' });
 
-    // 2) interceptor calls /auth/refresh with the stored refresh token
-    const refreshReq = httpMock.expectOne(`${environment.apiBaseUrl}/auth/refresh`);
-    expect(refreshReq.request.body.refreshToken).toBe('refresh-token');
-    refreshReq.flush(storedSession({ token: 'new-jwt', refreshToken: 'new-refresh' }));
+    // 2) interceptor calls /auth/refresh with the cookie (empty body)
+    const refreshReq = httpMock.expectOne(`${authUrl}/refresh`);
+    expect(refreshReq.request.withCredentials).toBe(true);
+    expect(refreshReq.request.body).toEqual({});
+    refreshReq.flush(session({ token: 'new-jwt' }));
 
-    // 3) original request is replayed with the NEW access token
+    // 3) original request replayed with the NEW access token
     const retried = httpMock.expectOne(`${environment.apiBaseUrl}/warehouse`);
     expect(retried.request.headers.get('Authorization')).toBe('Bearer new-jwt');
     retried.flush({ ok: true });
@@ -112,12 +116,10 @@ describe('authInterceptor', () => {
       .flush({}, { status: 401, statusText: 'Unauthorized' });
 
     // refresh attempt fails → session is dead
-    httpMock
-      .expectOne(`${environment.apiBaseUrl}/auth/refresh`)
-      .flush({}, { status: 401, statusText: 'Unauthorized' });
+    httpMock.expectOne(`${authUrl}/refresh`).flush({}, { status: 401, statusText: 'Unauthorized' });
 
     // logout fires a best-effort revoke; flush it so the mock is satisfied
-    httpMock.expectOne(`${environment.apiBaseUrl}/auth/logout`).flush({});
+    httpMock.expectOne(`${authUrl}/logout`).flush({});
 
     expect(auth.isLoggedIn()).toBe(false);
     expect(navSpy).toHaveBeenCalledWith(['/login']);
