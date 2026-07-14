@@ -1,0 +1,126 @@
+<div class="page-header">
+  <div>
+    <h1>My Tasks</h1>
+    <p class="page-header__subtitle">A personal to-do list — visible only to you.</p>
+  </div>
+</div>
+
+<div class="tasks-layout">
+  <!-- ── Add task ───────────────────────────────────────────────────────── -->
+  <div class="card tasks-add">
+    <h2>Add a task</h2>
+    <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
+      @if (serverError(); as error) {
+        <p class="form-error" role="alert">{{ error }}</p>
+      }
+
+      <label class="field">
+        <span class="field__label">Task</span>
+        <input type="text" formControlName="title" maxlength="200" placeholder="e.g. Order more shipping boxes" />
+        @if (form.controls.title.touched && form.controls.title.hasError('required')) {
+          <div class="field__error">Task title is required.</div>
+        }
+      </label>
+
+      <label class="field">
+        <span class="field__label">Notes <span class="optional">(optional)</span></span>
+        <textarea formControlName="notes" rows="2" maxlength="1000"></textarea>
+      </label>
+
+      <label class="field">
+        <span class="field__label">Due date <span class="optional">(optional)</span></span>
+        <input type="date" formControlName="dueDate" />
+      </label>
+
+      <button type="submit" class="btn btn--block" [disabled]="pending()">
+        {{ pending() ? 'Adding…' : '+ Add task' }}
+      </button>
+    </form>
+  </div>
+
+  <!-- ── Task list ──────────────────────────────────────────────────────── -->
+  <div class="card tasks-list-card">
+    <div class="tasks-list-head">
+      <h2>To do</h2>
+      @if (tasks() !== null) {
+        <span class="badge badge--muted">{{ openCount() }} open</span>
+      }
+    </div>
+
+    @if (tasks() === null) {
+      <div class="skeleton skeleton-row"></div>
+      <div class="skeleton skeleton-row"></div>
+      <div class="skeleton skeleton-row"></div>
+    } @else {
+      <ul class="task-list">
+        @for (task of openTasks(); track task.id) {
+          <li class="task-item">
+            <input
+              type="checkbox"
+              class="task-item__check"
+              [checked]="task.isCompleted"
+              [disabled]="isBusy(task.id)"
+              (change)="toggle(task)"
+              [attr.aria-label]="'Mark ' + task.title + ' complete'"
+            />
+            <div class="task-item__body">
+              <div class="task-item__title">{{ task.title }}</div>
+              @if (task.notes) {
+                <div class="task-item__notes">{{ task.notes }}</div>
+              }
+              @if (task.dueDate) {
+                <div class="task-item__due" [class.task-item__due--overdue]="isOverdue(task)">
+                  {{ isOverdue(task) ? '⚠️ Overdue: ' : '📅 Due ' }}{{ task.dueDate | date: 'MMM d, y' }}
+                </div>
+              }
+            </div>
+            <button
+              type="button"
+              class="icon-btn"
+              title="Delete task"
+              [disabled]="isBusy(task.id)"
+              (click)="deleteTask(task)"
+            >
+              🗑️
+            </button>
+          </li>
+        } @empty {
+          <li class="task-empty">🎉 Nothing to do — you're all caught up!</li>
+        }
+      </ul>
+
+      @if (doneTasks().length > 0) {
+        <div class="tasks-list-head tasks-list-head--done">
+          <h2>Completed</h2>
+          <span class="badge badge--muted">{{ doneTasks().length }}</span>
+        </div>
+        <ul class="task-list task-list--done">
+          @for (task of doneTasks(); track task.id) {
+            <li class="task-item task-item--done">
+              <input
+                type="checkbox"
+                class="task-item__check"
+                [checked]="task.isCompleted"
+                [disabled]="isBusy(task.id)"
+                (change)="toggle(task)"
+                [attr.aria-label]="'Reopen ' + task.title"
+              />
+              <div class="task-item__body">
+                <div class="task-item__title">{{ task.title }}</div>
+              </div>
+              <button
+                type="button"
+                class="icon-btn"
+                title="Delete task"
+                [disabled]="isBusy(task.id)"
+                (click)="deleteTask(task)"
+              >
+                🗑️
+              </button>
+            </li>
+          }
+        </ul>
+      }
+    }
+  </div>
+</div>

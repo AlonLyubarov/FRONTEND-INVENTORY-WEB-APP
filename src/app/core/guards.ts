@@ -8,7 +8,10 @@ export const authGuard: CanActivateFn = () => {
   const auth = inject(AuthService);
   const router = inject(Router);
 
-  if (auth.isLoggedIn() && !auth.isSessionExpired()) {
+  // Optimistic: a session with an expired access token but a live refresh token
+  // is still valid — the interceptor refreshes it on the first API call. If the
+  // refresh token is dead too, that first call 401s and logs the user out.
+  if (auth.isLoggedIn()) {
     return true;
   }
   auth.logout();

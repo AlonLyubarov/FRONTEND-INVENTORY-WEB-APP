@@ -1,6 +1,6 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, tap } from 'rxjs';
+import { Observable, tap, throwError } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { AuthResponse, LoginRequest, RegisterRequest, UserDto } from './models';
 
@@ -23,11 +23,28 @@ export class AuthService {
 
   login(request: LoginRequest): Observable<AuthResponse> {
     return this.http.post<AuthResponse>(`${this.baseUrl}/login`, request).pipe(
-      tap((response) => {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(response));
-        this.currentUserSignal.set(response);
-      })
+      tap((response) => this.persistSession(response))
     );
+  }
+
+  /**
+   * Exchanges the stored refresh token for a fresh access token (and a rotated
+   * refresh token). Called by the interceptor when the access token has expired.
+   */
+  refresh(): Observable<AuthResponse> {
+    const refreshToken = this.currentUserSignal()?.refreshToken;
+    if (!refreshToken) {
+      return throwError(() => new Error('No refresh token available.'));
+    }
+    return this.http.post<AuthResponse>(`${this.baseUrl}/refresh`, { refreshToken }).pipe(
+      tap((response) => this.persistSession(response))
+    );
+  }
+
+  /** Saves the session to memory (signal) and localStorage. */
+  private persistSession(response: AuthResponse): void {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(response));
+    this.currentUserSignal.set(response);
   }
 
   register(request: RegisterRequest): Observable<UserDto> {
@@ -51,12 +68,25 @@ export class AuthService {
   }
 
   logout(): void {
+    // Best-effort server-side revocation so the refresh token can't be reused.
+    // Fire-and-forget: the local session is cleared regardless of the result.
+    const refreshToken = this.currentUserSignal()?.refreshToken;
+    if (refreshToken) {
+      this.http.post(`${this.baseUrl}/logout`, { refreshToken }).subscribe({
+        next: () => {},
+        error: () => {}
+      });
+    }
     localStorage.removeItem(STORAGE_KEY);
     this.currentUserSignal.set(null);
   }
 
   getToken(): string | null {
     return this.currentUserSignal()?.token ?? null;
+  }
+
+  getRefreshToken(): string | null {
+    return this.currentUserSignal()?.refreshToken ?? null;
   }
 
   /** The token's expiresAt is checked before every request; expired ⇒ treated as 401. */
@@ -79,7 +109,11 @@ function readStoredSession(): AuthResponse | null {
       return null;
     }
     const parsed = JSON.parse(raw) as AuthResponse;
-    if (!parsed.token || !parsed.expiresAt || isExpired(parsed.expiresAt)) {
+    // Keep the session as long as it can be refreshed: the access token may have
+    // expired (e.g. the tab was closed for an hour), but a valid refresh token
+    // lets the interceptor mint a new one on the first API call. A session with
+    // no refresh token is unusable and discarded.
+    if (!parsed.token || !parsed.refreshToken) {
       localStorage.removeItem(STORAGE_KEY);
       return null;
     }

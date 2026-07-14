@@ -14,6 +14,8 @@ export const TRANSACTION_TYPES: TransactionType[] = ['StockIn', 'StockOut', 'Adj
 
 export interface AuthResponse {
   token: string;
+  /** Long-lived refresh token used to obtain a new access token when it expires. */
+  refreshToken: string;
   username: string;
   role: Role;
   expiresAt: string;
@@ -119,6 +121,17 @@ export interface ReminderDto {
   createdAt: string;
 }
 
+export interface PersonalTaskDto {
+  id: number;
+  title: string;
+  notes: string | null;
+  isCompleted: boolean;
+  /** ISO date-time or null when the task has no deadline. */
+  dueDate: string | null;
+  createdAt: string;
+  completedAt: string | null;
+}
+
 // ── Request payloads ────────────────────────────────────────────────────────
 
 export interface RegisterRequest {
@@ -179,6 +192,20 @@ export interface CreateReminderRequest {
   date: string;
   title: string;
   notes?: string;
+}
+
+export interface CreatePersonalTaskRequest {
+  title: string;
+  notes?: string;
+  /** Optional deadline as YYYY-MM-DD; omit for no due date. */
+  dueDate?: string;
+}
+
+export interface UpdatePersonalTaskRequest {
+  title: string;
+  notes?: string;
+  isCompleted: boolean;
+  dueDate?: string | null;
 }
 
 // ── Work schedule (shifts) ──────────────────────────────────────────────────
